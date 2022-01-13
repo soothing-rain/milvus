@@ -82,7 +82,7 @@ verifiers: build-cpp getdeps cppcheck fmt static-check ruleguard
 # Build various components locally.
 binlog:
 	@echo "Building binlog ..."
-	@mkdir -p $(INSTALL_PATH) && go env -w CGO_ENABLED="1" && GO111MODULE=on $(GO) build -o $(INSTALL_PATH)/binlog $(PWD)/cmd/tools/binlog/main.go 1>/dev/null
+	@mkdir -p $(INSTALL_PATH) && go env -w CGO_ENABLED="1" GOOS=darwin GOARCH=arm64 && GO111MODULE=on $(GO) build -o $(INSTALL_PATH)/binlog $(PWD)/cmd/tools/binlog/main.go 1>/dev/null
 
 BUILD_TAGS = $(shell git describe --tags --always --dirty="-dev")
 BUILD_TIME = $(shell date -u)
@@ -97,7 +97,7 @@ print-build-info:
 
 milvus: build-cpp print-build-info
 	@echo "Building Milvus ..."
-	@mkdir -p $(INSTALL_PATH) && go env -w CGO_ENABLED="1" && GO111MODULE=on $(GO) build \
+	@mkdir -p $(INSTALL_PATH) && go env -w CGO_ENABLED="1" GOOS=darwin GOARCH=arm64 && GO111MODULE=on $(GO) build \
 		-ldflags="-X 'main.BuildTags=$(BUILD_TAGS)' -X 'main.BuildTime=$(BUILD_TIME)' -X 'main.GitCommit=$(GIT_COMMIT)' -X 'main.GoVersion=$(GO_VERSION)'" \
 		-o $(INSTALL_PATH)/milvus $(PWD)/cmd/main.go 1>/dev/null
 
@@ -174,7 +174,7 @@ clean:
 
 milvus-tools: print-build-info
 	@echo "Building tools ..."
-	@mkdir -p $(INSTALL_PATH)/tools && go env -w CGO_ENABLED="1" && GO111MODULE=on $(GO) build \
+	@mkdir -p $(INSTALL_PATH)/tools && go env -w CGO_ENABLED="1" GOOS=darwin GOARCH=arm64 && GO111MODULE=on $(GO) build \
 		-ldflags="-X 'main.BuildTags=$(BUILD_TAGS)' -X 'main.BuildTime=$(BUILD_TIME)' -X 'main.GitCommit=$(GIT_COMMIT)' -X 'main.GoVersion=$(GO_VERSION)'" \
 		-o $(INSTALL_PATH)/tools $(PWD)/cmd/tools/* 1>/dev/null
 

@@ -66,8 +66,8 @@ echo "BUILD_TYPE: " $BUILD_TYPE
 echo "CUSTOM_THIRDPARTY_PATH: " $CUSTOM_THIRDPARTY_PATH
 
 pushd ${CMAKE_BUILD}
-CMAKE_CMD="cmake \
--DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+CMAKE_CMD="arch -arm64 cmake \
+-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
 -DCMAKE_INSTALL_PREFIX=${OUTPUT_LIB} \
 -DCUSTOM_THIRDPARTY_DOWNLOAD_PATH=${CUSTOM_THIRDPARTY_PATH} ${SRC_DIR}"
 
@@ -86,13 +86,17 @@ fi
 make -j ${jobs}
 
 go env -w CGO_CFLAGS="-I${OUTPUT_LIB}/include"
+# For mac users, install rocksdb locally.
+#go env -w CGO_CFLAGS="-I/Users/yuchengao/Documents/GitHub/rocksdb/include"
+
 ldflags=""
 if [ -f "${OUTPUT_LIB}/lib/librocksdb.a" ]; then
      case "${unameOut}" in
           Linux*)     ldflags="-L${OUTPUT_LIB}/lib -l:librocksdb.a -lstdc++ -lm -lz";;
-          Darwin*)    ldflags="-L${OUTPUT_LIB}/lib -lrocksdb -lstdc++ -lm -lz";;
+          Darwin*)    ldflags="-L${OUTPUT_LIB}/lib -lrocksdb -stdlib=libc++ -lm -lz";;
           *)          echo "UNKNOWN:${unameOut}"; exit 0;
       esac
+      #-L/Users/yuchengao/Documents/GitHub/rocksdb
 else
      case "${unameOut}" in
               Linux*)     ldflags="-L${OUTPUT_LIB}/lib64 -l:librocksdb.a -lstdc++ -lm -lz";;
@@ -101,5 +105,6 @@ else
       esac
 fi
 
-go env -w CGO_LDFLAGS="$ldflags"
-go get github.com/tecbot/gorocksdb
+#CGO_CPPFLAGS="`llvm-config --cppflags`"
+go env -w  CGO_LDFLAGS="$ldflags" GOOS=darwin GOARCH=arm64
+go get -u github.com/soothing-rain/gorocksdb
