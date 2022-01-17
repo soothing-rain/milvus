@@ -12,7 +12,7 @@ services:
       - "4001:4001"
 
   pulsar:
-    image: apachepulsar/pulsar:2.7.3
+    image: zilliz/pulsar:2.7.3_arm64
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/pulsar:/pulsar/data
     environment:

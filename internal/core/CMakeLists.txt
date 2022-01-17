@@ -16,18 +16,31 @@
 
 cmake_minimum_required( VERSION 3.18 )
 
+EXECUTE_PROCESS( COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE )
+if ( ${ARCHITECTURE} STREQUAL "arm64" )
+    set( CMAKE_OSX_ARCHITECTURES "arm64" )
+endif ()
+
 if ( APPLE )
     set( CMAKE_CROSSCOMPILING TRUE )
     set( RUN_HAVE_GNU_POSIX_REGEX 0 )
     set( CMAKE_C_COMPILER "/usr/local/opt/llvm/bin/clang" )
     set( CMAKE_CXX_COMPILER "/usr/local/opt/llvm/bin/clang++" )
+    set( CMAKE_THREAD_LIBS_INIT "-lpthread" )
+    set( CMAKE_HAVE_THREADS_LIBRARY 1 )
+    set( CMAKE_USE_WIN32_THREADS_INIT 0 )
+    set( CMAKE_USE_PTHREADS_INIT 1 )
+    set( THREADS_PREFER_PTHREAD_FLAG ON )
 endif ()
 
 add_definitions(-DELPP_THREAD_SAFE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 message( STATUS "Building using CMake version: ${CMAKE_VERSION}" )
 
-project(core LANGUAGES C CXX)
+message("${CMAKE_SYSTEM_PROCESSOR}CMAKE_SYSTEM_PROCESSOR")
+project(core)
+
+message("${CMAKE_SYSTEM_PROCESSOR}CMAKE_SYSTEM_PROCESSOR")
 include(CheckCXXCompilerFlag)
 if ( APPLE )
     message(STATUS "==============Darwin Environment==============")

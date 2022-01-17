@@ -456,6 +456,8 @@ github.com/prometheus/procfs v0.6.0/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
 github.com/protocolbuffers/protobuf v3.17.3+incompatible h1:weIpdqbAakIy/7PnlmdSBnPdODTtUySpnf3LyypYPwA=
 github.com/protocolbuffers/protobuf v3.19.1+incompatible h1:0dQC8HUZUZK/yjixaUj3l7hcX9YqXJj4w+ySQw0UHxQ=
+github.com/quasilyte/go-ruleguard v0.2.1 h1:56eRm0daAyny9UhJnmtJW/UyLZQusukBAB8oT8AHKHo=
+github.com/quasilyte/go-ruleguard v0.2.1/go.mod h1:hN2rVc/uS4bQhQKTio2XaSJSafJwqBUWWwtssT3cQmc=
 github.com/rivo/tview v0.0.0-20200219210816-cd38d7432498/go.mod h1:6lkG1x+13OShEf0EaOCaTQYyB7d5nSbb181KtjlS+84=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
@@ -488,6 +490,8 @@ github.com/soothing-rain/gorocksdb v0.0.0-20220113074926-f4b9b182e17e h1:E1iqJnS
 github.com/soothing-rain/gorocksdb v0.0.0-20220113074926-f4b9b182e17e/go.mod h1:OEi1TEIyGy/kDfY3ZwoHfn+/dIK0ZOOKJ2ReaYf4sao=
 github.com/soothing-rain/gorocksdb v0.0.0-20220113075731-e68e68ed4c62 h1:EAmHsU58jrwMjgnVVxgnlqlBG+1uFuv+Om1qXr5GfII=
 github.com/soothing-rain/gorocksdb v0.0.0-20220113075731-e68e68ed4c62/go.mod h1:OEi1TEIyGy/kDfY3ZwoHfn+/dIK0ZOOKJ2ReaYf4sao=
+github.com/soothing-rain/gorocksdb v0.0.0-20220113120436-f4608ee2f442 h1:p5njHeks7Zp9YJbVPCMvlWdBqULpDq5y4Bs9ZrWNvXs=
+github.com/soothing-rain/gorocksdb v0.0.0-20220113120436-f4608ee2f442/go.mod h1:OEi1TEIyGy/kDfY3ZwoHfn+/dIK0ZOOKJ2ReaYf4sao=
 github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
 github.com/spaolacci/murmur3 v1.1.0 h1:7c1g84S4BPRrfL5Xrdp6fOJ206sU9y293DDHaoy0bLI=
 github.com/spaolacci/murmur3 v1.1.0/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
@@ -850,6 +854,7 @@ golang.org/x/tools v0.0.0-20200618134242-20370b0cb4b2/go.mod h1:EkVYQZoAsY45+roY
 golang.org/x/tools v0.0.0-20200619180055-7c47624df98f/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20200729194436-6467de6f59a7/go.mod h1:njjCfa9FT2d7l9Bc6FUM5FLjQPp3cFF28FI3qnDFljA=
 golang.org/x/tools v0.0.0-20200804011535-6c149bb5ef0d/go.mod h1:njjCfa9FT2d7l9Bc6FUM5FLjQPp3cFF28FI3qnDFljA=
+golang.org/x/tools v0.0.0-20200812195022-5ae4c3c160a0/go.mod h1:njjCfa9FT2d7l9Bc6FUM5FLjQPp3cFF28FI3qnDFljA=
 golang.org/x/tools v0.0.0-20200825202427-b303f430e36d/go.mod h1:njjCfa9FT2d7l9Bc6FUM5FLjQPp3cFF28FI3qnDFljA=
 golang.org/x/tools v0.0.0-20200904185747-39188db58858/go.mod h1:Cj7w3i3Rnn0Xh82ur9kSqwfTHTeVxaDqrfMjpcNT6bE=
 golang.org/x/tools v0.0.0-20201110124207-079ba7bd75cd/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
