@@ -13,11 +13,18 @@
 #include "log/Log.h"
 #include "segcore/SegcoreConfig.h"
 #include "segcore/segcore_init_c.h"
+#include <filesystem>
+namespace fs = std::filesystem;
 
 namespace milvus::segcore {
 extern "C" void
 SegcoreInit() {
     milvus::config::KnowhereInitImpl();
+#if defined(EMBEDDED_MILVUS)
+    el::Configurations conf(std::string(fs::current_path())+"/configs/advanced/el_embedded_milvus.conf");
+    el::Loggers::reconfigureLogger("default", conf);
+    el::Loggers::reconfigureAllLoggers(conf);
+#endif
 }
 
 extern "C" void
