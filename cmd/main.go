@@ -17,8 +17,10 @@
 package main
 
 import (
+	"C"
 	"flag"
 	"fmt"
+	"github.com/milvus-io/milvus/internal/util/paramtable"
 	"io"
 	"io/ioutil"
 	"os"
@@ -195,14 +197,40 @@ func printUsage(w io.Writer, f *flag.Flag) {
 	fmt.Fprint(w, s, "\n")
 }
 
+//export helloWorld
+func helloWorld() {
+	fmt.Println("Hello World")
+}
+
+//export hello
+func hello(namePtr *C.char) {
+	name := C.GoString(namePtr)
+	fmt.Println("Hello", name)
+}
+
+//export farewell
+func farewell() *C.char {
+	return C.CString("Bye!")
+}
+
 func main() {
-	if len(os.Args) < 3 {
+}
+
+////export mainx
+//func mainx() {
+//	go gomain()
+//}
+
+//export mainx
+func mainx() {
+	newos := []string{"path", "run", "standalone"}
+	if len(newos) < 3 {
 		_, _ = fmt.Fprint(os.Stderr, "usage: milvus [command] [server type] [flags]\n")
 		return
 	}
-	command := os.Args[1]
-	serverType := os.Args[2]
-	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	command := newos[1]
+	serverType := newos[2]
+	flags := flag.NewFlagSet(newos[0], flag.ExitOnError)
 
 	var svrAlias string
 	flags.StringVar(&svrAlias, "alias", "", "set alias")
@@ -214,7 +242,7 @@ func main() {
 	flags.BoolVar(&enableDataCoord, typeutil.DataCoordRole, false, "enable data coordinator")
 
 	flags.Usage = func() {
-		fmt.Fprintf(flags.Output(), "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(flags.Output(), "Usage of %s:\n", newos[0])
 		switch {
 		case serverType == roleMixture:
 			flags.VisitAll(func(f *flag.Flag) {
@@ -230,7 +258,7 @@ func main() {
 		}
 	}
 
-	if err := flags.Parse(os.Args[3:]); err != nil {
+	if err := flags.Parse(newos[3:]); err != nil {
 		os.Exit(-1)
 	}
 
@@ -272,6 +300,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Unknown server type = %s\n", serverType)
 		os.Exit(-1)
 	}
+
+	var params paramtable.BaseTable
+	params.Init()
+	params.SetLogConfig()
+	params.SetLogger(0)
 
 	runtimeDir := "/run/milvus"
 	if err := makeRuntimeDir(runtimeDir); err != nil {

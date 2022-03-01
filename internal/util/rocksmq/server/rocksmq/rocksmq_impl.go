@@ -36,16 +36,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// UniqueID is the type of message ID
+// UniqueID is the type of message ID.
 type UniqueID = typeutil.UniqueID
 
-// RmqState Rocksmq state
+// RmqState indicates the RocksMQ state.
 type RmqState = int64
 
-// RocksmqPageSize is the size of a message page, default 256MB
+// RocksmqPageSize is the size of a message page, which defaults to 256MB.
 var RocksmqPageSize int64 = 256 << 20
 
-// Const variable that will be used in rocksmqs
 const (
 	DefaultMessageID = -1
 
@@ -54,7 +53,7 @@ const (
 
 	kvSuffix = "_meta_kv"
 
-	//  topic_begin_id/topicName
+	// topic_begin_id/topicName
 	// topic begin id record a topic is valid, create when topic is created, cleaned up on destroy topic
 	TopicIDTitle = "topic_id/"
 
@@ -80,27 +79,24 @@ const (
 )
 
 const (
-	// RmqStateStopped state stands for just created or stopped `Rocksmq` instance
+	// RmqStateStopped state indicates that a RocksMQ instance is just created or stopped.
 	RmqStateStopped RmqState = 0
-	// RmqStateHealthy state stands for healthy `Rocksmq` instance
+	// RmqStateHealthy state indicates that a RocksMQ instance is healthy.
 	RmqStateHealthy RmqState = 1
 )
 
-/**
- * Construct current id
- */
+// constructCurrentID generates and returns the current ID by concatenating group name, topic name and a suffix.
 func constructCurrentID(topicName, groupName string) string {
 	return groupName + "/" + topicName + "/" + CurrentIDSuffix
 }
 
-/**
- * Combine metaname together with topic
- */
+// constructKey generates and returns the key by concatenating meta name and topic.
 func constructKey(metaName, topic string) string {
 	// Check metaName/topic
 	return metaName + topic
 }
 
+// parsePageID parses and extracts the page ID from the given key.
 func parsePageID(key string) (int64, error) {
 	stringSlice := strings.Split(key, "/")
 	if len(stringSlice) != 3 {

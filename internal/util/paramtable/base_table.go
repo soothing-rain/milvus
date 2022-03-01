@@ -57,18 +57,14 @@ type BaseTable struct {
 	LogCfgFunc func(log.Config)
 }
 
-// Init initializes the paramtable
+// Init initializes the param table.
 func (gp *BaseTable) Init() {
 	gp.params = memkv.NewMemoryKV()
-
 	gp.configDir = gp.initConfPath()
-	log.Debug("config directory", zap.String("configDir", gp.configDir))
-
 	gp.loadFromMilvusYaml()
-
 	gp.tryloadFromEnv()
-
 	gp.InitLogCfg()
+	log.Debug("config directory", zap.String("configDir", gp.configDir))
 }
 
 // GetConfigDir returns the config directory

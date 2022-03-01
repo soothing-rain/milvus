@@ -13,12 +13,12 @@ package rocksmq
 
 import "context"
 
-// ProducerMessage that will be written to rocksdb
+// ProducerMessage stores pay load to write to RocksDB.
 type ProducerMessage struct {
 	Payload []byte
 }
 
-// Consumer is rocksmq consumer
+// Consumer is RocksMQ consumer.
 type Consumer struct {
 	Topic     string
 	GroupName string
@@ -26,14 +26,14 @@ type Consumer struct {
 	beginID   UniqueID
 }
 
-// ConsumerMessage that consumed from rocksdb
+// ConsumerMessage that consumed from RocksDB.
 type ConsumerMessage struct {
 	MsgID   UniqueID
 	Payload []byte
 }
 
-// RocksMQ is an interface thatmay be implemented by the application
-// to do message queue operations based on rocksdb
+// RocksMQ is an interface to be implemented by the application
+// to do message queue operations based on RocksDB.
 type RocksMQ interface {
 	CreateTopic(topicName string) error
 	DestroyTopic(topicName string) error

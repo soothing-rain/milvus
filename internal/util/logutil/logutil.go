@@ -109,18 +109,10 @@ var _globalZapWrapper atomic.Value
 
 const defaultLogLevel = "info"
 
-func init() {
-	conf := &log.Config{Level: defaultLogLevel, File: log.FileLogConfig{}}
-	lg, _, _ := log.InitLogger(conf)
-	_globalZapWrapper.Store(&zapWrapper{
-		logger: lg,
-	})
-}
-
 // SetupLogger is used to initialize the log with config.
 func SetupLogger(cfg *log.Config) {
 	once.Do(func() {
-		// initialize logger
+		// Initialize logger.
 		logger, p, err := log.InitLogger(cfg, zap.AddStacktrace(zap.ErrorLevel))
 		if err == nil {
 			log.ReplaceGlobals(logger, p)
