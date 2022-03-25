@@ -490,6 +490,9 @@ func TestRootCoordInit(t *testing.T) {
 	core.kvBaseCreate = func(string) (kv.TxnKV, error) {
 		return nil, retry.Unrecoverable(errors.New("injected"))
 	}
+	core.metaKVCreate = func(root string) (kv.MetaKv, error) {
+		return nil, retry.Unrecoverable(errors.New("injected"))
+	}
 	err = core.Init()
 	assert.NotNil(t, err)
 
@@ -513,6 +516,9 @@ func TestRootCoordInit(t *testing.T) {
 		}
 		return memkv.NewMemoryKV(), nil
 	}
+	core.metaKVCreate = func(root string) (kv.MetaKv, error) {
+		return nil, nil
+	}
 	err = core.Init()
 	assert.NotNil(t, err)
 
@@ -531,6 +537,9 @@ func TestRootCoordInit(t *testing.T) {
 	Params.EtcdCfg.KvRootPath = fmt.Sprintf("/%d/%s", randVal, Params.EtcdCfg.KvRootPath)
 
 	core.kvBaseCreate = func(string) (kv.TxnKV, error) {
+		return nil, nil
+	}
+	core.metaKVCreate = func(root string) (kv.MetaKv, error) {
 		return nil, nil
 	}
 	err = core.Init()
@@ -553,6 +562,9 @@ func TestRootCoordInit(t *testing.T) {
 	core.kvBaseCreate = func(string) (kv.TxnKV, error) {
 		kv := memkv.NewMemoryKV()
 		return &loadPrefixFailKV{TxnKV: kv}, nil
+	}
+	core.metaKVCreate = func(root string) (kv.MetaKv, error) {
+		return nil, nil
 	}
 	err = core.Init()
 	assert.NotNil(t, err)
@@ -641,11 +653,7 @@ func TestRootCoord_Base(t *testing.T) {
 
 	tmpFactory := msgstream.NewPmsFactory()
 
-	m := map[string]interface{}{
-		"pulsarAddress":  Params.PulsarCfg.Address,
-		"receiveBufSize": 1024,
-		"pulsarBufSize":  1024}
-	err = tmpFactory.SetParams(m)
+	err = tmpFactory.Init(&Params)
 	assert.Nil(t, err)
 
 	timeTickStream, _ := tmpFactory.NewMsgStream(ctx)
@@ -2448,11 +2456,7 @@ func TestRootCoord2(t *testing.T) {
 	err = core.Register()
 	assert.Nil(t, err)
 
-	m := map[string]interface{}{
-		"receiveBufSize": 1024,
-		"pulsarAddress":  Params.PulsarCfg.Address,
-		"pulsarBufSize":  1024}
-	err = msFactory.SetParams(m)
+	err = msFactory.Init(&Params)
 	assert.Nil(t, err)
 
 	timeTickStream, _ := msFactory.NewMsgStream(ctx)
@@ -2582,6 +2586,10 @@ func TestCheckInit(t *testing.T) {
 	assert.NotNil(t, err)
 
 	c.kvBase = &etcdkv.EtcdKV{}
+	err = c.checkInit()
+	assert.NotNil(t, err)
+
+	c.impTaskKv = &etcdkv.EtcdKV{}
 	err = c.checkInit()
 	assert.NotNil(t, err)
 
@@ -2736,11 +2744,7 @@ func TestCheckFlushedSegments(t *testing.T) {
 	err = core.Register()
 	assert.Nil(t, err)
 
-	m := map[string]interface{}{
-		"receiveBufSize": 1024,
-		"pulsarAddress":  Params.PulsarCfg.Address,
-		"pulsarBufSize":  1024}
-	err = msFactory.SetParams(m)
+	err = msFactory.Init(&Params)
 	assert.Nil(t, err)
 
 	timeTickStream, _ := msFactory.NewMsgStream(ctx)
@@ -2903,11 +2907,7 @@ func TestRootCoord_CheckZeroShardsNum(t *testing.T) {
 	err = core.Register()
 	assert.Nil(t, err)
 
-	m := map[string]interface{}{
-		"receiveBufSize": 1024,
-		"pulsarAddress":  Params.PulsarCfg.Address,
-		"pulsarBufSize":  1024}
-	err = msFactory.SetParams(m)
+	err = msFactory.Init(&Params)
 	assert.Nil(t, err)
 
 	timeTickStream, _ := msFactory.NewMsgStream(ctx)
