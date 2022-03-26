@@ -84,7 +84,11 @@ func metricProxy(v int64) string {
 	return fmt.Sprintf("client_%d", v)
 }
 
-var Params paramtable.ComponentParam
+var (
+	Params                     paramtable.ComponentParam
+	CheckCompleteIndexInterval = 3 * time.Minute
+	TaskTimeLimit              = 3 * time.Hour
+)
 
 // Core root coordinator core
 type Core struct {
@@ -2203,21 +2207,24 @@ func (c *Core) GetImportState(ctx context.Context, req *milvuspb.GetImportStateR
 	return resp, nil
 }
 
-// Report impot task state to rootcoord
+// ReportImport reports import task state to Root Coord.
 func (c *Core) ReportImport(ctx context.Context, req *rootcoordpb.ImportResult) (*commonpb.Status, error) {
 	if code, ok := c.checkHealthy(); !ok {
 		return failStatus(commonpb.ErrorCode_UnexpectedError, "StateCode="+internalpb.StateCode_name[int32(code)]), nil
 	}
 
+	// Notify import manager of the latest task status.
 	log.Info("receive import state report")
-
-	err := c.importManager.updateTaskState(req)
+	taskInfo, err := c.importManager.updateTaskState(req)
 	if err != nil {
 		return &commonpb.Status{
 			ErrorCode: commonpb.ErrorCode_UnexpectedError,
 			Reason:    err.Error(),
 		}, nil
 	}
+
+	// Start a loop to check segments' index states periodically.
+	go c.checkCompleteIndexLoop(ctx, taskInfo, req.Segments)
 
 	return &commonpb.Status{
 		ErrorCode: commonpb.ErrorCode_Success,
@@ -2307,4 +2314,42 @@ func (c *Core) CountCompleteIndex(ctx context.Context, collectionName string, co
 		zap.Int64("collection ID", collectionID),
 	)
 	return ct, nil
+}
+
+// checkCompleteIndexLoop checks index build states for an import task's segments and bring these segments online when
+// the criteria are met. checkCompleteIndexLoop does the check every CheckCompleteIndexInterval minutes exits when
+// a certain percent of indices are built, when context is done or when the task has expired.
+func (c *Core) checkCompleteIndexLoop(ctx context.Context, ti *datapb.ImportTaskInfo, segIDs []UniqueID) {
+	defer c.wg.Done()
+	ticker := time.NewTicker(CheckCompleteIndexInterval)
+	spent := time.Duration(time.Unix(time.Now().Unix()-ti.CreateTs, 0).Nanosecond())
+	log.Info("Reporting task time left",
+		zap.Int64("task ID", ti.Id),
+		zap.Int64("minutes remaining", int64((TaskTimeLimit-spent).Minutes())))
+	expireTicker := time.NewTicker(TaskTimeLimit - spent) // TODO: Replace with real task time limit.
+	for {
+		select {
+		case <-c.ctx.Done():
+			log.Info("Context done, exiting checkCompleteIndexLoop", zap.Int64("task ID", ti.Id))
+			return
+		case <-ticker.C:
+			log.Info("Check segments' index states", zap.Int64("task ID", ti.Id))
+			if value, err := c.CountCompleteIndex(ctx, "COLNAME", 999999,
+				segIDs); err != nil && segmentsOnlineReady(value, len(segIDs)) {
+				c.importManager.bringSegmentsOnline()
+				return
+			}
+		case <-expireTicker.C:
+			log.Info("Task has expired, stop waiting for segment results", zap.Int64("task ID", ti.Id))
+			return
+		}
+	}
+}
+
+// segmentsOnlineReady returns true if segments are ready to be brought up online.
+func segmentsOnlineReady(idxBuilt, segCount int) bool {
+	if segCount-idxBuilt <= 2 || float64(idxBuilt)/float64(segCount) > 0.85 {
+		return true
+	}
+	return false
 }

@@ -275,41 +275,39 @@ func (m *importManager) importJob(req *milvuspb.ImportRequest) *milvuspb.ImportR
 	return resp
 }
 
-func (m *importManager) updateTaskState(state *rootcoordpb.ImportResult) error {
-	if state == nil {
-		return errors.New("import task state is nil")
+func (m *importManager) updateTaskState(ir *rootcoordpb.ImportResult) (*datapb.ImportTaskInfo, error) {
+	if ir == nil {
+		return nil, errors.New("import result is nil")
 	}
-
-	log.Debug("import manager update task state", zap.Int64("taskID", state.GetTaskId()))
+	log.Debug("import manager update task import result", zap.Int64("taskID", ir.GetTaskId()))
 
 	found := false
+	var v *datapb.ImportTaskInfo
 	func() {
 		m.workingLock.Lock()
 		defer m.workingLock.Unlock()
-
-		for k, v := range m.workingTasks {
-			if state.TaskId == k {
-				found = true
-				v.State.StateCode = state.GetState()
-				v.State.Segments = state.GetSegments()
-				v.State.RowCount = state.GetRowCount()
-				for _, kv := range state.GetInfos() {
-					if kv.GetKey() == FailedReason {
-						v.State.ErrorMessage = kv.GetValue()
-						break
-					}
+		ok := false
+		if v, found = m.workingTasks[ir.TaskId]; ok {
+			found = true
+			v.State.StateCode = ir.GetState()
+			v.State.Segments = ir.GetSegments()
+			v.State.RowCount = ir.GetRowCount()
+			for _, kv := range ir.GetInfos() {
+				if kv.GetKey() == FailedReason {
+					v.State.ErrorMessage = kv.GetValue()
+					break
 				}
-				// Update task in task store.
-				m.updateImportTask(v)
 			}
+			// Update task in task store.
+			m.updateImportTask(v)
 		}
 	}()
 
 	if !found {
-		log.Debug("import manager update task state failed", zap.Int64("taskID", state.GetTaskId()))
-		return errors.New("failed to update import task, id not found: " + strconv.FormatInt(state.TaskId, 10))
+		log.Debug("import manager update task import result failed", zap.Int64("taskID", ir.GetTaskId()))
+		return nil, errors.New("failed to update import task, id not found: " + strconv.FormatInt(ir.TaskId, 10))
 	}
-	return nil
+	return v, nil
 }
 
 func (m *importManager) getTaskState(id int64) *milvuspb.GetImportStateResponse {
@@ -436,6 +434,12 @@ func (m *importManager) updateImportTask(task *datapb.ImportTaskInfo) error {
 	}
 	log.Info("Task info successfully updated.", zap.Int64("Task ID", task.Id))
 	return nil
+}
+
+// bringSegmentsOnline brings the segments online so that data in these segments become searchable.
+func (m *importManager) bringSegmentsOnline() {
+	log.Info("Bringing import tasks segments online!")
+	// TODO: Implement it.
 }
 
 // BuildImportTaskKey constructs and returns an Etcd key with given task ID.
