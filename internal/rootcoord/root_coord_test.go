@@ -588,6 +588,8 @@ func TestRootCoord_Base(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	CheckCompleteIndexInterval = 1 * time.Second
+
 	coreFactory := msgstream.NewPmsFactory()
 	Params.Init()
 	Params.RootCoordCfg.DmlChannelNum = TestDMLChannelNum
@@ -1056,7 +1058,7 @@ func TestRootCoord_Base(t *testing.T) {
 				Timestamp: 170,
 				SourceID:  170,
 			},
-			CollectionID: coll.ID,
+			CollectionID: coll.GetID(),
 			PartitionID:  partID,
 		}
 		rsp, err := core.ShowSegments(ctx, req)
@@ -1229,6 +1231,68 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
 		assert.Equal(t, 1, len(rsp.IndexDescriptions))
 		assert.Equal(t, Params.CommonCfg.DefaultIndexName, rsp.IndexDescriptions[0].IndexName)
+	})
+
+	wg.Add(1)
+	t.Run("import", func(t *testing.T) {
+		defer wg.Done()
+		req := &milvuspb.ImportRequest{
+			CollectionName: collName,
+			PartitionName:  partName,
+			RowBased:       true,
+			Files:          []string{"f1", "f2", "f3"},
+		}
+		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
+		assert.NoError(t, err)
+		core.MetaTable.collName2ID[collName] = coll.GetID()
+		rsp, err := core.Import(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("get import state", func(t *testing.T) {
+		defer wg.Done()
+		req := &milvuspb.GetImportStateRequest{
+			Task: 0,
+		}
+		rsp, err := core.GetImportState(ctx, req)
+		assert.Nil(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("report import context done", func(t *testing.T) {
+		defer wg.Done()
+		req := &rootcoordpb.ImportResult{
+			TaskId:   0,
+			RowCount: 100,
+		}
+		rsp, err := core.ReportImport(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("report import update import task fail", func(t *testing.T) {
+		defer wg.Done()
+		// Case where report import request is nil.
+		resp, err := core.ReportImport(ctx, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_UpdateImportTaskFailure, resp.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("report import segments online ready", func(t *testing.T) {
+		defer wg.Done()
+		req := &rootcoordpb.ImportResult{
+			TaskId:   0,
+			RowCount: 100,
+			Segments: []int64{1000, 1001, 1002},
+		}
+		resp, err := core.ReportImport(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
 	})
 
 	wg.Add(1)
@@ -2112,43 +2176,6 @@ func TestRootCoord_Base(t *testing.T) {
 		resp, err = core.GetMetrics(ctx, req)
 		assert.Nil(t, err)
 		assert.Equal(t, commonpb.ErrorCode_Success, resp.Status.ErrorCode)
-	})
-
-	wg.Add(1)
-	t.Run("import", func(t *testing.T) {
-		defer wg.Done()
-		req := &milvuspb.ImportRequest{
-			CollectionName: "c1",
-			PartitionName:  "p1",
-			RowBased:       true,
-			Files:          []string{"f1", "f2", "f3"},
-		}
-		rsp, err := core.Import(ctx, req)
-		assert.Nil(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
-	})
-
-	wg.Add(1)
-	t.Run("get import state", func(t *testing.T) {
-		defer wg.Done()
-		req := &milvuspb.GetImportStateRequest{
-			Task: 0,
-		}
-		rsp, err := core.GetImportState(ctx, req)
-		assert.Nil(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
-	})
-
-	wg.Add(1)
-	t.Run("report import", func(t *testing.T) {
-		defer wg.Done()
-		req := &rootcoordpb.ImportResult{
-			TaskId:   0,
-			RowCount: 100,
-		}
-		rsp, err := core.ReportImport(ctx, req)
-		assert.Nil(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.ErrorCode)
 	})
 
 	wg.Add(1)
