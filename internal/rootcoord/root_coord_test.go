@@ -55,7 +55,13 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-const TestDMLChannelNum = 32
+const (
+	TestDMLChannelNum        = 32
+	returnError              = "ReturnError"
+	returnUnsuccessfulStatus = "ReturnUnsuccessfulStatus"
+)
+
+type ctxKey struct{}
 
 type proxyMock struct {
 	types.Proxy
@@ -255,7 +261,18 @@ func (idx *indexMock) getFileArray() []string {
 	return ret
 }
 
-func (idx *indexMock) GetIndexStates(_ context.Context, req *indexpb.GetIndexStatesRequest) (*indexpb.GetIndexStatesResponse, error) {
+func (idx *indexMock) GetIndexStates(ctx context.Context, req *indexpb.GetIndexStatesRequest) (*indexpb.GetIndexStatesResponse, error) {
+	v := ctx.Value(ctxKey{}).(string)
+	if v == returnError {
+		return nil, fmt.Errorf("injected error")
+	} else if v == returnUnsuccessfulStatus {
+		return &indexpb.GetIndexStatesResponse{
+			Status: &commonpb.Status{
+				ErrorCode: 100,
+				Reason:    "not so good",
+			},
+		}, nil
+	}
 	resp := &indexpb.GetIndexStatesResponse{
 		Status: &commonpb.Status{
 			ErrorCode: 0,
@@ -1188,9 +1205,23 @@ func TestRootCoord_Base(t *testing.T) {
 		defer wg.Done()
 		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
 		assert.NoError(t, err)
-		count, err := core.CountCompleteIndex(ctx, collName, coll.ID, []UniqueID{1000, 1001, 1002})
+		// Normal case.
+		count, err := core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, ""),
+			collName, coll.ID, []UniqueID{1000, 1001, 1002})
 		assert.NoError(t, err)
 		assert.Equal(t, 3, count)
+		// Case with an empty result.
+		count, err = core.CountCompleteIndex(ctx, collName, coll.ID, []UniqueID{})
+		assert.NoError(t, err)
+		assert.Equal(t, 0, count)
+		// Case where GetIndexStates failed with error.
+		_, err = core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, returnError),
+			collName, coll.ID, []UniqueID{1000, 1001, 1002})
+		assert.Error(t, err)
+		// Case where GetIndexStates failed with bad status.
+		_, err = core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, returnUnsuccessfulStatus),
+			collName, coll.ID, []UniqueID{1000, 1001, 1002})
+		assert.Error(t, err)
 	})
 
 	wg.Add(1)
