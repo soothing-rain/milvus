@@ -29,8 +29,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/milvus-io/milvus/internal/util/timerecord"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/milvus-io/milvus/internal/allocator"
 	"github.com/milvus-io/milvus/internal/common"
@@ -55,12 +53,16 @@ import (
 	"github.com/milvus-io/milvus/internal/util/paramtable"
 	"github.com/milvus-io/milvus/internal/util/retry"
 	"github.com/milvus-io/milvus/internal/util/sessionutil"
+	"github.com/milvus-io/milvus/internal/util/timerecord"
 	"github.com/milvus-io/milvus/internal/util/trace"
 	"github.com/milvus-io/milvus/internal/util/tsoutil"
 	"github.com/milvus-io/milvus/internal/util/typeutil"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
+
+// UniqueID is an alias of typeutil.UniqueID.
+type UniqueID = typeutil.UniqueID
 
 // ------------------ struct -----------------------
 
@@ -82,7 +84,11 @@ func metricProxy(v int64) string {
 	return fmt.Sprintf("client_%d", v)
 }
 
-var Params paramtable.ComponentParam
+var (
+	Params                     paramtable.ComponentParam
+	CheckCompleteIndexInterval = 3 * time.Minute
+	TaskTimeLimit              = 3 * time.Hour
+)
 
 // Core root coordinator core
 type Core struct {
@@ -132,9 +138,10 @@ type Core struct {
 	CallGetNumRowsService         func(ctx context.Context, segID typeutil.UniqueID, isFromFlushedChan bool) (int64, error)
 	CallGetFlushedSegmentsService func(ctx context.Context, collID, partID typeutil.UniqueID) ([]typeutil.UniqueID, error)
 
-	//call index builder's client to build index, return build id
-	CallBuildIndexService func(ctx context.Context, binlog []string, field *schemapb.FieldSchema, idxInfo *etcdpb.IndexInfo, numRows int64) (typeutil.UniqueID, error)
-	CallDropIndexService  func(ctx context.Context, indexID typeutil.UniqueID) error
+	//call index builder's client to build index, return build id or get index state.
+	CallBuildIndexService     func(ctx context.Context, binlog []string, field *schemapb.FieldSchema, idxInfo *etcdpb.IndexInfo, numRows int64) (typeutil.UniqueID, error)
+	CallDropIndexService      func(ctx context.Context, indexID typeutil.UniqueID) error
+	CallGetIndexStatesService func(ctx context.Context, IndexBuildIDs []int64) ([]*indexpb.IndexInfo, error)
 
 	NewProxyClient func(sess *sessionutil.Session) (types.Proxy, error)
 
@@ -367,63 +374,64 @@ func (c *Core) checkFlushedSegments(ctx context.Context) {
 					zap.Int64("collection id", collMeta.ID),
 					zap.Int64("partition id", partID),
 					zap.Error(err))
-			} else {
-				for _, segID := range segIDs {
-					indexInfos := []*etcdpb.FieldIndexInfo{}
-					indexMeta, ok := segID2IndexMeta[segID]
-					if !ok {
-						indexInfos = append(indexInfos, collMeta.FieldIndexes...)
-					} else {
-						for _, idx := range collMeta.FieldIndexes {
-							if _, ok := indexMeta[idx.IndexID]; !ok {
-								indexInfos = append(indexInfos, idx)
-							}
+				cancel2()
+				continue
+			}
+			for _, segID := range segIDs {
+				indexInfos := []*etcdpb.FieldIndexInfo{}
+				indexMeta, ok := segID2IndexMeta[segID]
+				if !ok {
+					indexInfos = append(indexInfos, collMeta.FieldIndexes...)
+				} else {
+					for _, idx := range collMeta.FieldIndexes {
+						if _, ok := indexMeta[idx.IndexID]; !ok {
+							indexInfos = append(indexInfos, idx)
 						}
 					}
-					for _, idxInfo := range indexInfos {
-						/* #nosec G601 */
-						field, err := GetFieldSchemaByID(&collMeta, idxInfo.FiledID)
-						if err != nil {
-							log.Debug("GetFieldSchemaByID",
-								zap.Any("collection_meta", collMeta),
-								zap.Int64("field id", idxInfo.FiledID))
-							continue
-						}
-						indexMeta, ok := indexID2Meta[idxInfo.IndexID]
-						if !ok {
-							log.Debug("index meta does not exist", zap.Int64("index_id", idxInfo.IndexID))
-							continue
-						}
-						info := etcdpb.SegmentIndexInfo{
-							CollectionID: collMeta.ID,
-							PartitionID:  partID,
-							SegmentID:    segID,
-							FieldID:      idxInfo.FiledID,
-							IndexID:      idxInfo.IndexID,
-							EnableIndex:  false,
-						}
-						log.Debug("building index by background checker",
+				}
+				for _, idxInfo := range indexInfos {
+					/* #nosec G601 */
+					field, err := GetFieldSchemaByID(&collMeta, idxInfo.FiledID)
+					if err != nil {
+						log.Debug("GetFieldSchemaByID",
+							zap.Any("collection_meta", collMeta),
+							zap.Int64("field id", idxInfo.FiledID))
+						continue
+					}
+					indexMeta, ok := indexID2Meta[idxInfo.IndexID]
+					if !ok {
+						log.Debug("index meta does not exist", zap.Int64("index_id", idxInfo.IndexID))
+						continue
+					}
+					info := etcdpb.SegmentIndexInfo{
+						CollectionID: collMeta.ID,
+						PartitionID:  partID,
+						SegmentID:    segID,
+						FieldID:      idxInfo.FiledID,
+						IndexID:      idxInfo.IndexID,
+						EnableIndex:  false,
+					}
+					log.Debug("building index by background checker",
+						zap.Int64("segment_id", segID),
+						zap.Int64("index_id", indexMeta.IndexID),
+						zap.Int64("collection_id", collMeta.ID))
+					info.BuildID, err = c.BuildIndex(ctx2, segID, field, &indexMeta, false)
+					if err != nil {
+						log.Debug("build index failed",
 							zap.Int64("segment_id", segID),
-							zap.Int64("index_id", indexMeta.IndexID),
-							zap.Int64("collection_id", collMeta.ID))
-						info.BuildID, err = c.BuildIndex(ctx2, segID, field, &indexMeta, false)
-						if err != nil {
-							log.Debug("build index failed",
-								zap.Int64("segment_id", segID),
-								zap.Int64("field_id", field.FieldID),
-								zap.Int64("index_id", indexMeta.IndexID))
-							continue
-						}
-						if info.BuildID != 0 {
-							info.EnableIndex = true
-						}
-						if err := c.MetaTable.AddIndex(&info); err != nil {
-							log.Debug("Add index into meta table failed",
-								zap.Int64("collection_id", collMeta.ID),
-								zap.Int64("index_id", info.IndexID),
-								zap.Int64("build_id", info.BuildID),
-								zap.Error(err))
-						}
+							zap.Int64("field_id", field.FieldID),
+							zap.Int64("index_id", indexMeta.IndexID))
+						continue
+					}
+					if info.BuildID != 0 {
+						info.EnableIndex = true
+					}
+					if err := c.MetaTable.AddIndex(&info); err != nil {
+						log.Debug("Add index into meta table failed",
+							zap.Int64("collection_id", collMeta.ID),
+							zap.Int64("index_id", info.IndexID),
+							zap.Int64("build_id", info.BuildID),
+							zap.Error(err))
 					}
 				}
 			}
@@ -815,6 +823,29 @@ func (c *Core) SetIndexCoord(s types.IndexCoord) error {
 		return nil
 	}
 
+	c.CallGetIndexStatesService = func(ctx context.Context, IndexBuildIDs []int64) (idxInfo []*indexpb.IndexInfo, retErr error) {
+		defer func() {
+			if err := recover(); err != nil {
+				retErr = fmt.Errorf("get index state from index service panic, msg = %v", err)
+			}
+		}()
+		<-initCh
+		res, err := s.GetIndexStates(ctx, &indexpb.GetIndexStatesRequest{
+			IndexBuildIDs: IndexBuildIDs,
+		})
+		if err != nil {
+			log.Error("RootCoord failed to get index states from IndexCoord.", zap.Error(err))
+			return nil, err
+		}
+		if res.GetStatus().GetErrorCode() != commonpb.ErrorCode_Success {
+			log.Error("Get index states failed.",
+				zap.String("error_code", res.GetStatus().GetErrorCode().String()),
+				zap.String("reason", res.GetStatus().GetReason()))
+			return nil, fmt.Errorf(res.GetStatus().GetErrorCode().String())
+		}
+		log.Debug("Successfully got index states.")
+		return res.GetStates(), nil
+	}
 	return nil
 }
 
@@ -2145,7 +2176,7 @@ func (c *Core) AlterAlias(ctx context.Context, in *milvuspb.AlterAliasRequest) (
 	return succStatus(), nil
 }
 
-// Import data files(json, numpy, etc.) on MinIO/S3 storage, read and parse them into sealed segments
+// Import imports large files (json, numpy, etc.) on MinIO/S3 storage into Milvus storage.
 func (c *Core) Import(ctx context.Context, req *milvuspb.ImportRequest) (*milvuspb.ImportResponse, error) {
 	if code, ok := c.checkHealthy(); !ok {
 		return &milvuspb.ImportResponse{
@@ -2153,11 +2184,25 @@ func (c *Core) Import(ctx context.Context, req *milvuspb.ImportRequest) (*milvus
 		}, nil
 	}
 
-	log.Info("receive import request")
-	resp := c.importManager.importJob(req)
+	// Get collection/partition ID from collection/partition name.
+	var cID int64
+	var ok bool
+	if cID, ok = c.MetaTable.collName2ID[req.GetCollectionName()]; !ok {
+		log.Error("failed to find collection ID for collection name",
+			zap.String("collection name", req.GetCollectionName()))
+		return nil, fmt.Errorf("collection ID not found for collection name %s", req.GetCollectionName())
+	}
+	log.Info("receive import request",
+		zap.String("collection name", req.GetCollectionName()),
+		zap.Int64("collection ID", cID),
+		zap.String("partition name", req.GetPartitionName()),
+		zap.Int("# of files = ", len(req.GetFiles())),
+	)
+	resp := c.importManager.importJob(req, cID)
 	return resp, nil
 }
 
+// TODO: Implement this.
 // Check import task state from datanode
 func (c *Core) GetImportState(ctx context.Context, req *milvuspb.GetImportStateRequest) (*milvuspb.GetImportStateResponse, error) {
 	if code, ok := c.checkHealthy(); !ok {
@@ -2176,23 +2221,154 @@ func (c *Core) GetImportState(ctx context.Context, req *milvuspb.GetImportStateR
 	return resp, nil
 }
 
-// Report impot task state to rootcoord
+// ReportImport reports import task state to RootCoord.
 func (c *Core) ReportImport(ctx context.Context, req *rootcoordpb.ImportResult) (*commonpb.Status, error) {
 	if code, ok := c.checkHealthy(); !ok {
 		return failStatus(commonpb.ErrorCode_UnexpectedError, "StateCode="+internalpb.StateCode_name[int32(code)]), nil
 	}
 
 	log.Info("receive import state report")
-
-	err := c.importManager.updateTaskState(req)
+	// Upon receiving ReportImport request, update the related task's state in task store.
+	ti, err := c.importManager.updateTaskState(req)
 	if err != nil {
 		return &commonpb.Status{
-			ErrorCode: commonpb.ErrorCode_UnexpectedError,
+			ErrorCode: commonpb.ErrorCode_UpdateImportTaskFailure,
 			Reason:    err.Error(),
 		}, nil
 	}
+	// Start a loop to check segments' index states periodically.
+	c.wg.Add(1)
+	go c.checkCompleteIndexLoop(ctx, ti, req.Segments)
 
 	return &commonpb.Status{
 		ErrorCode: commonpb.ErrorCode_Success,
 	}, nil
+}
+
+// CountCompleteIndex checks indexing status of the given segments, and returns the # of segments that has complete index.
+func (c *Core) CountCompleteIndex(ctx context.Context, collectionName string, collectionID UniqueID,
+	allSegmentIDs []UniqueID) (int, error) {
+	// Note: Index name is always Params.CommonCfg.DefaultIndexName in current Milvus design as of today.
+	indexName := Params.CommonCfg.DefaultIndexName
+
+	// Retrieve index status and detailed index information.
+	describeIndexReq := &milvuspb.DescribeIndexRequest{
+		Base: &commonpb.MsgBase{
+			MsgType: commonpb.MsgType_DescribeIndex,
+		},
+		CollectionName: collectionName,
+		IndexName:      indexName,
+	}
+	indexDescriptionResp, err := c.DescribeIndex(ctx, describeIndexReq)
+	if err != nil {
+		return 0, err
+	}
+	log.Debug("got index description", zap.String("index_description", indexDescriptionResp.String()))
+
+	// Check if the target index name exists.
+	matchIndexID := int64(-1)
+	foundIndexID := false
+	for _, desc := range indexDescriptionResp.IndexDescriptions {
+		if desc.IndexName == indexName {
+			matchIndexID = desc.IndexID
+			foundIndexID = true
+			break
+		}
+	}
+	if !foundIndexID {
+		return 0, fmt.Errorf("no index is created")
+	}
+
+	getIndexStatesRequest := &indexpb.GetIndexStatesRequest{
+		IndexBuildIDs: make([]UniqueID, 0),
+	}
+
+	// Fetch index build IDs from segments.
+	for _, segmentID := range allSegmentIDs {
+		describeSegmentRequest := &milvuspb.DescribeSegmentRequest{
+			Base: &commonpb.MsgBase{
+				MsgType: commonpb.MsgType_DescribeSegment,
+			},
+			CollectionID: collectionID,
+			SegmentID:    segmentID,
+		}
+		segmentDesc, err := c.DescribeSegment(ctx, describeSegmentRequest)
+		if err != nil {
+			return 0, err
+		}
+		if segmentDesc.IndexID == matchIndexID {
+			if segmentDesc.EnableIndex {
+				getIndexStatesRequest.IndexBuildIDs = append(getIndexStatesRequest.IndexBuildIDs, segmentDesc.BuildID)
+			}
+		}
+	}
+	log.Debug("proxy GetIndexState", zap.Int("IndexBuildIDs", len(getIndexStatesRequest.IndexBuildIDs)), zap.Error(err))
+
+	if len(getIndexStatesRequest.IndexBuildIDs) == 0 {
+		log.Info("empty index build IDs returned", zap.String("collection name", collectionName), zap.Int64("collection ID", collectionID))
+		return 0, nil
+	}
+	states, err := c.CallGetIndexStatesService(ctx, getIndexStatesRequest.IndexBuildIDs)
+	if err != nil {
+		log.Error("failed to get index state in checkSegmentIndexStates", zap.Error(err))
+		return 0, err
+	}
+
+	// Count the # of segments with finished index.
+	ct := 0
+	for _, s := range states {
+		if s.State == commonpb.IndexState_Finished {
+			ct++
+		}
+	}
+	log.Info("segment indexing state checked",
+		zap.Int("# of checked segment", len(states)),
+		zap.Int("# of segments with complete index", ct),
+		zap.String("collection name", collectionName),
+		zap.Int64("collection ID", collectionID),
+	)
+	return ct, nil
+}
+
+// checkCompleteIndexLoop checks index build states for an import task's segments and bring these segments online when
+// the criteria are met. checkCompleteIndexLoop does the check every CheckCompleteIndexInterval and exits if:
+// (1) a certain percent of indices are built, (2) when context is done or (3) when the task is expired.
+func (c *Core) checkCompleteIndexLoop(ctx context.Context, ti *datapb.ImportTaskInfo, segIDs []UniqueID) {
+	defer c.wg.Done()
+	ticker := time.NewTicker(CheckCompleteIndexInterval)
+	spent := time.Duration(time.Unix(time.Now().Unix()-ti.GetCreateTs(), 0).Nanosecond())
+	log.Info("reporting task time left",
+		zap.Int64("task ID", ti.GetId()),
+		zap.Int64("minutes remaining", int64((TaskTimeLimit-spent).Minutes())))
+	// TODO: Replace with real task time limit.
+	expireTicker := time.NewTicker(TaskTimeLimit - spent)
+	for {
+		select {
+		case <-c.ctx.Done():
+			log.Info("context done, exiting checkCompleteIndexLoop", zap.Int64("task ID", ti.GetId()))
+			return
+		case <-ticker.C:
+			log.Info("check segments' index states", zap.Int64("task ID", ti.GetId()))
+			if ct, err := c.CountCompleteIndex(ctx, ti.GetCollectionName(), ti.GetCollectionId(), segIDs); err == nil &&
+				segmentsOnlineReady(ct, len(segIDs)) {
+				c.importManager.bringSegmentsOnline(ti)
+				return
+			}
+		case <-expireTicker.C:
+			log.Info("task has expired, stop waiting for segment results", zap.Int64("task ID", ti.GetId()))
+			return
+		}
+
+	}
+}
+
+// segmentsOnlineReady returns true if segments are ready to go up online (a.k.a. searchable).
+func segmentsOnlineReady(idxBuilt, segCount int) bool {
+	// Consider segments are ready when:
+	// (1) all but up to 2 segments have indices ready, or
+	// (2) over 85% of segments have indices ready.
+	if segCount-idxBuilt <= 2 || float64(idxBuilt)/float64(segCount) > 0.85 {
+		return true
+	}
+	return false
 }
