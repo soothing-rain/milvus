@@ -19,6 +19,7 @@ package datacoord
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -973,6 +974,22 @@ func (s *Server) Import(ctx context.Context, req *datapb.ImportTask) (*datapb.Im
 		resp.Status.Reason = msgDataCoordIsUnhealthy(Params.DataCoordCfg.NodeID)
 		return resp, nil
 	}
+
+	var workingNodes []int64
+	nodes := s.channelManager.store.GetNodes()
+	working := make(map[int64]struct{}, len(workingNodes))
+	for _, x := range workingNodes {
+		working[x] = struct{}{}
+	}
+	var avaNodes []int64
+	for _, x := range nodes {
+		if _, found := working[x]; !found {
+			avaNodes = append(avaNodes, x)
+		}
+	}
+	// Pick an available DataNode at random.
+	dnID := avaNodes[rand.Intn(len(avaNodes))]
+	s.cluster.Import(req, dnID)
 
 	resp.Status.ErrorCode = commonpb.ErrorCode_Success
 	return resp, nil

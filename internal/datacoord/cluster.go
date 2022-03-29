@@ -137,6 +137,9 @@ func (c *Cluster) Flush(ctx context.Context, segments []*datapb.SegmentInfo, mar
 	}
 }
 
+func (c *Cluster) Import(ctx context.Context, ti *datapb.ImportTask) {
+}
+
 // GetSessions returns all sessions
 func (c *Cluster) GetSessions() []*Session {
 	return c.sessionManager.GetSessions()
