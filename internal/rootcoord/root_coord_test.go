@@ -61,6 +61,8 @@ const (
 	returnUnsuccessfulStatus = "ReturnUnsuccessfulStatus"
 )
 
+var disabledIndexBuildID []int64
+
 type ctxKey struct{}
 
 type proxyMock struct {
@@ -279,10 +281,21 @@ func (idx *indexMock) GetIndexStates(ctx context.Context, req *indexpb.GetIndexS
 			Reason:    "all good",
 		},
 	}
-	for range req.IndexBuildIDs {
-		resp.States = append(resp.States, &indexpb.IndexInfo{
-			State: commonpb.IndexState_Finished,
-		})
+	for id := range req.IndexBuildIDs {
+		ban := false
+		for disabled := range disabledIndexBuildID {
+			if disabled == id {
+				ban = true
+				resp.States = append(resp.States, &indexpb.IndexInfo{
+					State: commonpb.IndexState_InProgress,
+				})
+			}
+		}
+		if !ban {
+			resp.States = append(resp.States, &indexpb.IndexInfo{
+				State: commonpb.IndexState_Finished,
+			})
+		}
 	}
 	return resp, nil
 }
@@ -604,6 +617,9 @@ func TestRootCoord_Base(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	CheckCompleteIndexInterval = 100 * time.Millisecond
+	TaskTimeLimit = 200 * time.Millisecond
 
 	coreFactory := msgstream.NewPmsFactory()
 	Params.Init()
@@ -1063,7 +1079,7 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.Nil(t, err)
 		partID := coll.PartitionIDs[1]
 		dm.mu.Lock()
-		dm.segs = []typeutil.UniqueID{1000, 1001, 1002}
+		dm.segs = []typeutil.UniqueID{1000, 1001, 1002, 1003, 1004, 1005}
 		dm.mu.Unlock()
 
 		req := &milvuspb.ShowSegmentsRequest{
@@ -1073,7 +1089,7 @@ func TestRootCoord_Base(t *testing.T) {
 				Timestamp: 170,
 				SourceID:  170,
 			},
-			CollectionID: coll.ID,
+			CollectionID: coll.GetID(),
 			PartitionID:  partID,
 		}
 		rsp, err := core.ShowSegments(ctx, req)
@@ -1082,7 +1098,10 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.Equal(t, int64(1000), rsp.SegmentIDs[0])
 		assert.Equal(t, int64(1001), rsp.SegmentIDs[1])
 		assert.Equal(t, int64(1002), rsp.SegmentIDs[2])
-		assert.Equal(t, 3, len(rsp.SegmentIDs))
+		assert.Equal(t, int64(1003), rsp.SegmentIDs[3])
+		assert.Equal(t, int64(1004), rsp.SegmentIDs[4])
+		assert.Equal(t, int64(1005), rsp.SegmentIDs[5])
+		assert.Equal(t, 6, len(rsp.SegmentIDs))
 	})
 
 	wg.Add(1)
@@ -1114,9 +1133,12 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.Equal(t, commonpb.ErrorCode_Success, rsp.ErrorCode)
 		time.Sleep(100 * time.Millisecond)
 		files := im.getFileArray()
-		assert.Equal(t, 3*3, len(files))
+		assert.Equal(t, 6*3, len(files))
 		assert.ElementsMatch(t, files,
 			[]string{"file0-100", "file1-100", "file2-100",
+				"file0-100", "file1-100", "file2-100",
+				"file0-100", "file1-100", "file2-100",
+				"file0-100", "file1-100", "file2-100",
 				"file0-100", "file1-100", "file2-100",
 				"file0-100", "file1-100", "file2-100"})
 		collMeta, err = core.MetaTable.GetCollectionByName(collName, 0)
@@ -1260,6 +1282,113 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
 		assert.Equal(t, 1, len(rsp.IndexDescriptions))
 		assert.Equal(t, Params.CommonCfg.DefaultIndexName, rsp.IndexDescriptions[0].IndexName)
+	})
+
+	wg.Add(1)
+	t.Run("import", func(t *testing.T) {
+		defer wg.Done()
+		req := &milvuspb.ImportRequest{
+			CollectionName: collName,
+			PartitionName:  partName,
+			RowBased:       true,
+			Files:          []string{"f1", "f2", "f3"},
+		}
+		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
+		assert.NoError(t, err)
+		core.MetaTable.collName2ID[collName] = coll.GetID()
+		rsp, err := core.Import(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("import w/ collection ID not found", func(t *testing.T) {
+		defer wg.Done()
+		req := &milvuspb.ImportRequest{
+			CollectionName: "bad name",
+			PartitionName:  partName,
+			RowBased:       true,
+			Files:          []string{"f1", "f2", "f3"},
+		}
+		_, err := core.Import(ctx, req)
+		assert.Error(t, err)
+	})
+
+	wg.Add(1)
+	t.Run("get import state", func(t *testing.T) {
+		defer wg.Done()
+		req := &milvuspb.GetImportStateRequest{
+			Task: 0,
+		}
+		rsp, err := core.GetImportState(ctx, req)
+		assert.Nil(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("report import succeed", func(t *testing.T) {
+		defer wg.Done()
+		req := &rootcoordpb.ImportResult{
+			TaskId:   0,
+			RowCount: 100,
+		}
+		rsp, err := core.ReportImport(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.ErrorCode)
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	wg.Add(1)
+	t.Run("report import task timeout", func(t *testing.T) {
+		defer wg.Done()
+		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
+		assert.Nil(t, err)
+		req := &rootcoordpb.ImportResult{
+			TaskId:   1,
+			RowCount: 100,
+			Segments: []int64{1000, 1001, 1002},
+		}
+
+		for _, segmentID := range []int64{1003, 1004, 1005} {
+			describeSegmentRequest := &milvuspb.DescribeSegmentRequest{
+				Base: &commonpb.MsgBase{
+					MsgType: commonpb.MsgType_DescribeSegment,
+				},
+				CollectionID: coll.ID,
+				SegmentID:    segmentID,
+			}
+			segDesc, err := core.DescribeSegment(ctx, describeSegmentRequest)
+			assert.NoError(t, err)
+			disabledIndexBuildID = append(disabledIndexBuildID, segDesc.BuildID)
+		}
+
+		rsp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.ErrorCode)
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	wg.Add(1)
+	t.Run("report import update import task fail", func(t *testing.T) {
+		defer wg.Done()
+		// Case where report import request is nil.
+		resp, err := core.ReportImport(ctx, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_UpdateImportTaskFailure, resp.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("report import segments online ready", func(t *testing.T) {
+		defer wg.Done()
+		req := &rootcoordpb.ImportResult{
+			TaskId:   0,
+			RowCount: 100,
+			Segments: []int64{1000, 1001, 1002},
+		}
+		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
+		time.Sleep(500 * time.Millisecond)
 	})
 
 	wg.Add(1)
@@ -2146,43 +2275,6 @@ func TestRootCoord_Base(t *testing.T) {
 	})
 
 	wg.Add(1)
-	t.Run("import", func(t *testing.T) {
-		defer wg.Done()
-		req := &milvuspb.ImportRequest{
-			CollectionName: "c1",
-			PartitionName:  "p1",
-			RowBased:       true,
-			Files:          []string{"f1", "f2", "f3"},
-		}
-		rsp, err := core.Import(ctx, req)
-		assert.Nil(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
-	})
-
-	wg.Add(1)
-	t.Run("get import state", func(t *testing.T) {
-		defer wg.Done()
-		req := &milvuspb.GetImportStateRequest{
-			Task: 0,
-		}
-		rsp, err := core.GetImportState(ctx, req)
-		assert.Nil(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
-	})
-
-	wg.Add(1)
-	t.Run("report import", func(t *testing.T) {
-		defer wg.Done()
-		req := &rootcoordpb.ImportResult{
-			TaskId:   0,
-			RowCount: 100,
-		}
-		rsp, err := core.ReportImport(ctx, req)
-		assert.Nil(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.ErrorCode)
-	})
-
-	wg.Add(1)
 	t.Run("get system info", func(t *testing.T) {
 		defer wg.Done()
 		// normal case
@@ -2418,6 +2510,7 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotEqual(t, commonpb.ErrorCode_Success, p2.Status.ErrorCode)
 	})
+
 	wg.Wait()
 	err = core.Stop()
 	assert.Nil(t, err)
