@@ -837,13 +837,13 @@ func (c *Core) SetIndexCoord(s types.IndexCoord) error {
 			log.Error("RootCoord failed to get index states from IndexCoord.", zap.Error(err))
 			return nil, err
 		}
+		log.Debug("got index states", zap.String("get index state result", res.String()))
 		if res.GetStatus().GetErrorCode() != commonpb.ErrorCode_Success {
 			log.Error("Get index states failed.",
 				zap.String("error_code", res.GetStatus().GetErrorCode().String()),
 				zap.String("reason", res.GetStatus().GetReason()))
 			return nil, fmt.Errorf(res.GetStatus().GetErrorCode().String())
 		}
-		log.Debug("Successfully got index states.")
 		return res.GetStates(), nil
 	}
 	return nil
@@ -2236,13 +2236,6 @@ func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (
 			Reason:    err.Error(),
 		}, nil
 	}
-	// Reverse look up collection name on collection ID.
-	var colName string
-	for k, v := range c.MetaTable.collName2ID {
-		if v == ir.GetTaskId() {
-			colName = k
-		}
-	}
 
 	// When DataNode has done its thing, remove it from the busy node list.
 	c.importManager.busyNodesLock.Lock()
@@ -2251,6 +2244,22 @@ func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (
 	log.Info("dataNode is no longer busy",
 		zap.Int64("dataNode ID", ir.GetDatanodeId()),
 		zap.Int64("task ID", ir.GetTaskId()))
+
+	// Reverse look up collection name on collection ID.
+	var colName string
+	for k, v := range c.MetaTable.collName2ID {
+		if v == ir.GetCollectionId() {
+			colName = k
+		}
+	}
+	if colName == "" {
+		log.Error("Collection name not found for collection ID", zap.Int64("collection ID", ti.GetCollectionId()))
+		return &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_CollectionNameNotFound,
+			Reason:    "Collection name not found for collection ID" + strconv.FormatInt(ti.GetCollectionId(), 10),
+		}, nil
+	}
+
 
 	// Start a loop to check segments' index states periodically.
 	c.wg.Add(1)
@@ -2294,6 +2303,7 @@ func (c *Core) CountCompleteIndex(ctx context.Context, collectionName string, co
 	if !foundIndexID {
 		return 0, fmt.Errorf("no index is created")
 	}
+	log.Debug("found match index ID", zap.Int64("match index ID", matchIndexID))
 
 	getIndexStatesRequest := &indexpb.GetIndexStatesRequest{
 		IndexBuildIDs: make([]UniqueID, 0),
@@ -2310,6 +2320,9 @@ func (c *Core) CountCompleteIndex(ctx context.Context, collectionName string, co
 		}
 		segmentDesc, err := c.DescribeSegment(ctx, describeSegmentRequest)
 		if err != nil {
+			log.Error("Failed to describe segment",
+				zap.Int64("collection ID", collectionID),
+				zap.Int64("segment ID", segmentID))
 			return 0, err
 		}
 		if segmentDesc.IndexID == matchIndexID {

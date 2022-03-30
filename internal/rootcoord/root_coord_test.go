@@ -266,8 +266,10 @@ func (idx *indexMock) getFileArray() []string {
 func (idx *indexMock) GetIndexStates(ctx context.Context, req *indexpb.GetIndexStatesRequest) (*indexpb.GetIndexStatesResponse, error) {
 	v := ctx.Value(ctxKey{}).(string)
 	if v == returnError {
+		log.Debug("(testing) simulating injected error")
 		return nil, fmt.Errorf("injected error")
 	} else if v == returnUnsuccessfulStatus {
+		log.Debug("(testing) simulating unsuccessful status")
 		return &indexpb.GetIndexStatesResponse{
 			Status: &commonpb.Status{
 				ErrorCode: 100,
@@ -281,9 +283,11 @@ func (idx *indexMock) GetIndexStates(ctx context.Context, req *indexpb.GetIndexS
 			Reason:    "all good",
 		},
 	}
-	for id := range req.IndexBuildIDs {
+	log.Debug(fmt.Sprint("(testing) getting index state for index build IDs:", req.IndexBuildIDs))
+	log.Debug(fmt.Sprint("(testing) banned index build IDs:", disabledIndexBuildID))
+	for _, id := range req.IndexBuildIDs {
 		ban := false
-		for disabled := range disabledIndexBuildID {
+		for _, disabled := range disabledIndexBuildID {
 			if disabled == id {
 				ban = true
 				resp.States = append(resp.States, &indexpb.IndexInfo{
@@ -1326,19 +1330,6 @@ func TestRootCoord_Base(t *testing.T) {
 	})
 
 	wg.Add(1)
-	t.Run("report import succeed", func(t *testing.T) {
-		defer wg.Done()
-		req := &rootcoordpb.ImportResult{
-			TaskId:   0,
-			RowCount: 100,
-		}
-		rsp, err := core.ReportImport(ctx, req)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.ErrorCode)
-		time.Sleep(500 * time.Millisecond)
-	})
-
-	wg.Add(1)
 	t.Run("report import task timeout", func(t *testing.T) {
 		defer wg.Done()
 		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
@@ -1346,7 +1337,7 @@ func TestRootCoord_Base(t *testing.T) {
 		req := &rootcoordpb.ImportResult{
 			TaskId:   1,
 			RowCount: 100,
-			Segments: []int64{1000, 1001, 1002},
+			Segments: []int64{1003, 1004, 1005},
 		}
 
 		for _, segmentID := range []int64{1003, 1004, 1005} {
@@ -1372,9 +1363,36 @@ func TestRootCoord_Base(t *testing.T) {
 	t.Run("report import update import task fail", func(t *testing.T) {
 		defer wg.Done()
 		// Case where report import request is nil.
-		resp, err := core.ReportImport(ctx, nil)
+		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), nil)
 		assert.NoError(t, err)
 		assert.Equal(t, commonpb.ErrorCode_UpdateImportTaskFailure, resp.ErrorCode)
+	})
+
+	wg.Add(1)
+	t.Run("report import collection name not found", func(t *testing.T) {
+		defer wg.Done()
+
+		req := &milvuspb.ImportRequest{
+			CollectionName: "new" + collName,
+			PartitionName:  partName,
+			RowBased:       true,
+			Files:          []string{"f1", "f2", "f3"},
+		}
+		core.MetaTable.collName2ID["new"+collName] = 123
+		rsp, err := core.Import(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
+		delete(core.MetaTable.collName2ID, "new"+collName)
+
+		reqIR := &rootcoordpb.ImportResult{
+			TaskId:   3,
+			RowCount: 100,
+			Segments: []int64{1003, 1004, 1005},
+		}
+		// Case where report import request is nil.
+		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), reqIR)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_CollectionNameNotFound, resp.ErrorCode)
 	})
 
 	wg.Add(1)

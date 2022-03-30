@@ -36,6 +36,7 @@ enum ErrorCode {
     IndexNotExist = 25;
     EmptyCollection = 26;
     UpdateImportTaskFailure = 27;
+    CollectionNameNotFound = 28;
 
     // internal error code.
     DDRequestRace = 1000;
