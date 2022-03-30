@@ -56,7 +56,7 @@ func TestImportManager_NewImportManager(t *testing.T) {
 	mockKv.SaveWithLease(BuildImportTaskKey(1), "value", 1)
 	mockKv.SaveWithLease(BuildImportTaskKey(2), string(taskInfo1), 2)
 	mockKv.SaveWithLease(BuildImportTaskKey(3), string(taskInfo2), 3)
-	fn := func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse {
+	fn := func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
 		return &datapb.ImportTaskResponse{
 			Status: &commonpb.Status{
 				ErrorCode: commonpb.ErrorCode_Success,
@@ -100,7 +100,7 @@ func TestImportManager_ImportJob(t *testing.T) {
 		},
 	}
 
-	fn := func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse {
+	fn := func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
 		return &datapb.ImportTaskResponse{
 			Status: &commonpb.Status{
 				ErrorCode: commonpb.ErrorCode_UnexpectedError,
@@ -118,7 +118,7 @@ func TestImportManager_ImportJob(t *testing.T) {
 	assert.Equal(t, 1, len(mgr.pendingTasks))
 	assert.Equal(t, 0, len(mgr.workingTasks))
 
-	fn = func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse {
+	fn = func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
 		return &datapb.ImportTaskResponse{
 			Status: &commonpb.Status{
 				ErrorCode: commonpb.ErrorCode_Success,
@@ -137,7 +137,7 @@ func TestImportManager_ImportJob(t *testing.T) {
 	assert.Equal(t, 1, len(mgr.workingTasks))
 
 	count := 0
-	fn = func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse {
+	fn = func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
 		if count >= 2 {
 			return &datapb.ImportTaskResponse{
 				Status: &commonpb.Status{
@@ -164,7 +164,7 @@ func TestImportManager_TaskState(t *testing.T) {
 	colID := int64(100)
 	mockKv := &kv.MockMetaKV{}
 	mockKv.InMemKv = make(map[string]string)
-	fn := func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse {
+	fn := func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
 		return &datapb.ImportTaskResponse{
 			Status: &commonpb.Status{
 				ErrorCode: commonpb.ErrorCode_Success,

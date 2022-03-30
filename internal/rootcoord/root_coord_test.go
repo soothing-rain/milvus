@@ -172,7 +172,7 @@ func (d *dataMock) WatchChannels(ctx context.Context, req *datapb.WatchChannelsR
 		}}, nil
 }
 
-func (d *dataMock) Import(ctx context.Context, req *datapb.ImportTask) (*datapb.ImportTaskResponse, error) {
+func (d *dataMock) Import(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error) {
 	return &datapb.ImportTaskResponse{
 		Status: &commonpb.Status{
 			ErrorCode: commonpb.ErrorCode_Success,
@@ -2792,7 +2792,7 @@ func TestCheckInit(t *testing.T) {
 	c.CallWatchChannels = func(ctx context.Context, collectionID int64, channelNames []string) error {
 		return nil
 	}
-	c.CallImportService = func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse {
+	c.CallImportService = func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
 		return &datapb.ImportTaskResponse{
 			Status: &commonpb.Status{
 				ErrorCode: commonpb.ErrorCode_Success,

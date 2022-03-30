@@ -18,7 +18,6 @@ package datacoord
 
 import (
 	"context"
-
 	"go.uber.org/zap"
 
 	"github.com/milvus-io/milvus/internal/log"
@@ -137,7 +136,9 @@ func (c *Cluster) Flush(ctx context.Context, segments []*datapb.SegmentInfo, mar
 	}
 }
 
-func (c *Cluster) Import(ctx context.Context, ti *datapb.ImportTask) {
+// Import sends import requests to DataNodes whose ID==nodeID.
+func (c *Cluster) Import(ctx context.Context, nodeID int64, it *datapb.ImportTaskRequest) {
+	c.sessionManager.Import(ctx, nodeID, it)
 }
 
 // GetSessions returns all sessions

@@ -152,7 +152,7 @@ type Core struct {
 	CallWatchChannels func(ctx context.Context, collectionID int64, channelNames []string) error
 
 	//assign import task to data service
-	CallImportService func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse
+	CallImportService func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse
 
 	//Proxy manager
 	proxyManager *proxyManager
@@ -738,7 +738,7 @@ func (c *Core) SetDataCoord(ctx context.Context, s types.DataCoord) error {
 		}
 		return nil
 	}
-	c.CallImportService = func(ctx context.Context, req *datapb.ImportTask) *datapb.ImportTaskResponse {
+	c.CallImportService = func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
 		resp := &datapb.ImportTaskResponse{
 			Status: &commonpb.Status{
 				ErrorCode: commonpb.ErrorCode_Success,
@@ -2222,14 +2222,14 @@ func (c *Core) GetImportState(ctx context.Context, req *milvuspb.GetImportStateR
 }
 
 // ReportImport reports import task state to RootCoord.
-func (c *Core) ReportImport(ctx context.Context, req *rootcoordpb.ImportResult) (*commonpb.Status, error) {
+func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (*commonpb.Status, error) {
 	if code, ok := c.checkHealthy(); !ok {
 		return failStatus(commonpb.ErrorCode_UnexpectedError, "StateCode="+internalpb.StateCode_name[int32(code)]), nil
 	}
 
-	log.Info("receive import state report")
+	log.Info("receive import state report", zap.Any("import result", ir.String()))
 	// Upon receiving ReportImport request, update the related task's state in task store.
-	ti, err := c.importManager.updateTaskState(req)
+	ti, err := c.importManager.updateTaskState(ir)
 	if err != nil {
 		return &commonpb.Status{
 			ErrorCode: commonpb.ErrorCode_UpdateImportTaskFailure,
@@ -2239,14 +2239,22 @@ func (c *Core) ReportImport(ctx context.Context, req *rootcoordpb.ImportResult) 
 	// Reverse look up collection name on collection ID.
 	var colName string
 	for k, v := range c.MetaTable.collName2ID {
-		if v == req.GetTaskId() {
+		if v == ir.GetTaskId() {
 			colName = k
 		}
 	}
 
+	// When DataNode has done its thing, remove it from the busy node list.
+	c.importManager.busyNodesLock.Lock()
+	defer c.importManager.busyNodesLock.Unlock()
+	delete(c.importManager.busyNodes, ir.GetDatanodeId())
+	log.Info("dataNode is no longer busy",
+		zap.Int64("dataNode ID", ir.GetDatanodeId()),
+		zap.Int64("task ID", ir.GetTaskId()))
+
 	// Start a loop to check segments' index states periodically.
 	c.wg.Add(1)
-	go c.checkCompleteIndexLoop(ctx, ti, colName, req.Segments)
+	go c.checkCompleteIndexLoop(ctx, ti, colName, ir.Segments)
 
 	return &commonpb.Status{
 		ErrorCode: commonpb.ErrorCode_Success,

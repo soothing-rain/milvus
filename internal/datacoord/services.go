@@ -961,8 +961,8 @@ func (s *Server) GetFlushState(ctx context.Context, req *milvuspb.GetFlushStateR
 }
 
 // Import data files(json, numpy, etc.) on MinIO/S3 storage, read and parse them into sealed segments
-func (s *Server) Import(ctx context.Context, req *datapb.ImportTask) (*datapb.ImportTaskResponse, error) {
-	log.Info("receive import request")
+func (s *Server) Import(ctx context.Context, itr *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error) {
+	log.Info("receive import request", zap.Any("import task request", itr))
 	resp := &datapb.ImportTaskResponse{
 		Status: &commonpb.Status{
 			ErrorCode: commonpb.ErrorCode_UnexpectedError,
@@ -970,27 +970,46 @@ func (s *Server) Import(ctx context.Context, req *datapb.ImportTask) (*datapb.Im
 	}
 
 	if s.isClosed() {
-		log.Warn("failed to import because of closed server", zap.Int64("collection ID", req.GetCollectionId()))
+		log.Warn("failed to import because of closed server", zap.Any("import task request", itr))
 		resp.Status.Reason = msgDataCoordIsUnhealthy(Params.DataCoordCfg.NodeID)
 		return resp, nil
 	}
 
-	var workingNodes []int64
+	workingNodes := itr.WorkingNodes
 	nodes := s.channelManager.store.GetNodes()
-	working := make(map[int64]struct{}, len(workingNodes))
-	for _, x := range workingNodes {
-		working[x] = struct{}{}
+	if len(nodes) == 0 {
+		log.Error("import failed as all DataNodes are offline")
+		return resp, nil
 	}
-	var avaNodes []int64
-	for _, x := range nodes {
-		if _, found := working[x]; !found {
-			avaNodes = append(avaNodes, x)
-		}
+	avaNodes := getDiff(nodes, workingNodes)
+	if len(avaNodes) > 0 {
+		// If there exists available DataNodes, pick one at random.
+		dnID := avaNodes[rand.Intn(len(avaNodes))]
+		log.Info("picking a free datanode",
+			zap.Any("all data nodes", nodes),
+			zap.Int64("picking DataNode ID", dnID))
+		s.cluster.Import(ctx, dnID, itr)
+	} else {
+		// No DataNodes are available, choose a still working DataNode randomly.
+		dnID := nodes[rand.Intn(len(nodes))]
+		s.cluster.Import(ctx, dnID, itr)
 	}
-	// Pick an available DataNode at random.
-	dnID := avaNodes[rand.Intn(len(avaNodes))]
-	s.cluster.Import(req, dnID)
 
 	resp.Status.ErrorCode = commonpb.ErrorCode_Success
 	return resp, nil
+}
+
+// getDiff returns the difference of base and remove. i.e. all items that are in `base` but not in `remove`.
+func getDiff(base, remove []int64) []int64 {
+	mb := make(map[int64]struct{}, len(remove))
+	for _, x := range remove {
+		mb[x] = struct{}{}
+	}
+	var diff []int64
+	for _, x := range base {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }
