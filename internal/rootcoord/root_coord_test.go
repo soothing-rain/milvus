@@ -27,8 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/milvus-io/milvus/internal/log"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/milvus-io/milvus/internal/common"
 	"github.com/milvus-io/milvus/internal/kv"

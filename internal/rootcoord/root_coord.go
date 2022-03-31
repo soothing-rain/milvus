@@ -2311,7 +2311,7 @@ func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (
 
 	// Start a loop to check segments' index states periodically.
 	c.wg.Add(1)
-	go c.CheckCompleteIndexLoop(ctx, ti, colName, req.Segments)
+	go c.checkCompleteIndexLoop(ctx, ti, colName, ir.Segments)
 
 	// When DataNode has done its thing, remove it from the busy node list.
 	c.importManager.busyNodesLock.Lock()
@@ -2320,21 +2320,6 @@ func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (
 	log.Info("dataNode is no longer busy",
 		zap.Int64("dataNode ID", ir.GetDatanodeId()),
 		zap.Int64("task ID", ir.GetTaskId()))
-
-	// Reverse look up collection name on collection ID.
-	var colName string
-	for k, v := range c.MetaTable.collName2ID {
-		if v == ti.GetCollectionId() {
-			colName = k
-		}
-	}
-	if colName == "" {
-		log.Error("Collection name not found for collection ID", zap.Int64("collection ID", ti.GetCollectionId()))
-		return &commonpb.Status{
-			ErrorCode: commonpb.ErrorCode_CollectionNameNotFound,
-			Reason:    "Collection name not found for collection ID" + strconv.FormatInt(ti.GetCollectionId(), 10),
-		}, nil
-	}
 
 	// Start a loop to check segments' index states periodically.
 	c.wg.Add(1)
