@@ -17,41 +17,39 @@
 package querynode
 
 import (
-	"testing"
+	"context"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/milvus-io/milvus/internal/proto/commonpb"
+	"github.com/milvus-io/milvus/internal/proto/milvuspb"
 	"github.com/milvus-io/milvus/internal/proto/querypb"
 )
 
-func TestLoadIndexInfo(t *testing.T) {
-	indexParams := make([]*commonpb.KeyValuePair, 0)
-	indexParams = append(indexParams, &commonpb.KeyValuePair{
-		Key:   "index_type",
-		Value: "IVF_PQ",
-	})
-	indexParams = append(indexParams, &commonpb.KeyValuePair{
-		Key:   "index_mode",
-		Value: "cpu",
-	})
+type queryShard struct {
+	ctx    context.Context
+	cancel context.CancelFunc
 
-	indexBytes, err := genIndexBinarySet()
-	assert.NoError(t, err)
-	indexPaths := make([]string, 0)
-	indexPaths = append(indexPaths, "IVF")
+	collectionID UniqueID
+	channel      Channel
+}
 
-	loadIndexInfo, err := newLoadIndexInfo()
-	assert.Nil(t, err)
-
-	indexInfo := &querypb.FieldIndexInfo{
-		FieldID:        UniqueID(0),
-		IndexParams:    indexParams,
-		IndexFilePaths: indexPaths,
+func newQueryShard(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	collectionID UniqueID,
+	channel Channel,
+) *queryShard {
+	qs := &queryShard{
+		ctx:          ctx,
+		cancel:       cancel,
+		collectionID: collectionID,
+		channel:      channel,
 	}
+	return qs
+}
 
-	err = loadIndexInfo.appendIndexInfo(indexBytes, indexInfo)
-	assert.NoError(t, err)
+func (q *queryShard) search(ctx context.Context, req *querypb.SearchRequest) (*milvuspb.SearchResults, error) {
+	return nil, nil
+}
 
-	deleteLoadIndexInfo(loadIndexInfo)
+func (q *queryShard) query(ctx context.Context, req *querypb.QueryRequest) (*milvuspb.QueryResults, error) {
+	return nil, nil
 }

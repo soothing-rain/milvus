@@ -446,7 +446,7 @@ message ImportTaskInfo {
   bool row_based = 7;            // Boolean indicating whether import files are row-based or column-based.
   repeated string files = 8;     // A list of files to import.
   int64 create_ts = 9;           // Timestamp when the import task is created.
-  ImportTaskState state = 10;    // State of the import task.
+  ImportTaskState state = 10;     // State of the import task.
 }
 
 message ImportTaskResponse {

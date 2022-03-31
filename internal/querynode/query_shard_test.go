@@ -17,41 +17,24 @@
 package querynode
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/milvus-io/milvus/internal/proto/commonpb"
 	"github.com/milvus-io/milvus/internal/proto/querypb"
 )
 
-func TestLoadIndexInfo(t *testing.T) {
-	indexParams := make([]*commonpb.KeyValuePair, 0)
-	indexParams = append(indexParams, &commonpb.KeyValuePair{
-		Key:   "index_type",
-		Value: "IVF_PQ",
-	})
-	indexParams = append(indexParams, &commonpb.KeyValuePair{
-		Key:   "index_mode",
-		Value: "cpu",
-	})
-
-	indexBytes, err := genIndexBinarySet()
+func TestQueryShard_Search(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	qs := newQueryShard(ctx, cancel, 0, "vchan1")
+	_, err := qs.search(context.Background(), &querypb.SearchRequest{})
 	assert.NoError(t, err)
-	indexPaths := make([]string, 0)
-	indexPaths = append(indexPaths, "IVF")
+}
 
-	loadIndexInfo, err := newLoadIndexInfo()
-	assert.Nil(t, err)
-
-	indexInfo := &querypb.FieldIndexInfo{
-		FieldID:        UniqueID(0),
-		IndexParams:    indexParams,
-		IndexFilePaths: indexPaths,
-	}
-
-	err = loadIndexInfo.appendIndexInfo(indexBytes, indexInfo)
+func TestQueryShard_Query(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	qs := newQueryShard(ctx, cancel, 0, "vchan1")
+	_, err := qs.query(context.Background(), &querypb.QueryRequest{})
 	assert.NoError(t, err)
-
-	deleteLoadIndexInfo(loadIndexInfo)
 }
