@@ -90,16 +90,16 @@ func newImportManager(ctx context.Context, client kv.MetaKv, importService func(
 	return mgr
 }
 
-func (m *importManager) init() error {
+func (m *importManager) init(ctx context.Context) error {
 	//  Read tasks from etcd and save them as pendingTasks or workingTasks.
 	m.load()
-	m.sendOutTasks()
+	m.sendOutTasks(ctx)
 
 	return nil
 }
 
 // sendOutTasks pushes all pending tasks to DataCoord, gets DataCoord response and re-add these tasks as working tasks.
-func (m *importManager) sendOutTasks() error {
+func (m *importManager) sendOutTasks(ctx context.Context) error {
 	m.pendingLock.Lock()
 	m.busyNodesLock.Lock()
 	defer m.pendingLock.Unlock()
@@ -125,12 +125,12 @@ func (m *importManager) sendOutTasks() error {
 		log.Debug("sending import task to DataCoord", zap.Int64("taskID", task.GetId()))
 		// Get all busy dataNodes for reference.
 		var busyNodeList []int64
-		for k, _ := range m.busyNodes {
+		for k := range m.busyNodes {
 			busyNodeList = append(busyNodeList, k)
 		}
 
 		// Call DataCoord.Import().
-		resp := m.callImportService(m.ctx, &datapb.ImportTaskRequest{
+		resp := m.callImportService(ctx, &datapb.ImportTaskRequest{
 			ImportTask:   it,
 			WorkingNodes: busyNodeList,
 		})
@@ -180,7 +180,7 @@ func (m *importManager) genReqID() int64 {
 
 // importJob processes the import request, generates import tasks, sends these tasks to DataCoord, and returns
 // immediately.
-func (m *importManager) importJob(req *milvuspb.ImportRequest, cID int64) *milvuspb.ImportResponse {
+func (m *importManager) importJob(ctx context.Context, req *milvuspb.ImportRequest, cID int64) *milvuspb.ImportResponse {
 	if req == nil || len(req.Files) == 0 {
 		return &milvuspb.ImportResponse{
 			Status: &commonpb.Status{
@@ -284,7 +284,7 @@ func (m *importManager) importJob(req *milvuspb.ImportRequest, cID int64) *milvu
 			log.Info("column-based import request processed", zap.Int64("reqID", reqID), zap.Int64("taskID", newTask.GetId()))
 		}
 	}()
-	m.sendOutTasks()
+	m.sendOutTasks(ctx)
 	return resp
 }
 

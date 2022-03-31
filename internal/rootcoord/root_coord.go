@@ -1132,7 +1132,7 @@ func (c *Core) Init() error {
 			c.impTaskKv,
 			c.CallImportService,
 		)
-		c.importManager.init()
+		c.importManager.init(c.ctx)
 	})
 	if initError != nil {
 		log.Debug("RootCoord init error", zap.Error(initError))
@@ -2198,7 +2198,7 @@ func (c *Core) Import(ctx context.Context, req *milvuspb.ImportRequest) (*milvus
 		zap.String("partition name", req.GetPartitionName()),
 		zap.Int("# of files = ", len(req.GetFiles())),
 	)
-	resp := c.importManager.importJob(req, cID)
+	resp := c.importManager.importJob(ctx, req, cID)
 	return resp, nil
 }
 
@@ -2248,7 +2248,7 @@ func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (
 	// Reverse look up collection name on collection ID.
 	var colName string
 	for k, v := range c.MetaTable.collName2ID {
-		if v == ir.GetCollectionId() {
+		if v == ti.GetCollectionId() {
 			colName = k
 		}
 	}
@@ -2259,7 +2259,6 @@ func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (
 			Reason:    "Collection name not found for collection ID" + strconv.FormatInt(ti.GetCollectionId(), 10),
 		}, nil
 	}
-
 
 	// Start a loop to check segments' index states periodically.
 	c.wg.Add(1)

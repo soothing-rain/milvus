@@ -155,7 +155,7 @@ func (c *SessionManager) Import(ctx context.Context, nodeID int64, itr *datapb.I
 	go c.execImport(ctx, nodeID, itr)
 }
 
-// execImport is get the corresponding DataNode with its ID and calls its Import method.
+// execImport gets the corresponding DataNode with its ID and calls its Import method.
 func (c *SessionManager) execImport(ctx context.Context, nodeID int64, itr *datapb.ImportTaskRequest) {
 	cli, err := c.getClient(ctx, nodeID)
 	if err != nil {
