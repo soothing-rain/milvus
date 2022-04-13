@@ -37,8 +37,9 @@ mkdir -p ${OUTPUT_LIB}
 
 BUILD_TYPE="Debug"
 CUSTOM_THIRDPARTY_PATH=""
+EMBEDDED_MILVUS="OFF"
 
-while getopts "a:b:t:h:f:" arg; do
+while getopts "a:b:t:h:f:e" arg; do
   case $arg in
   f)
     CUSTOM_THIRDPARTY_PATH=$OPTARG
@@ -58,8 +59,12 @@ while getopts "a:b:t:h:f:" arg; do
 -b: arrow tag(default: apache-arrow-2.0.0)
 -f: custom thirdparty path(default: "")
 -h: help
+-e: build embedded milvus(default: OFF)
                 "
     exit 0
+    ;;
+  e)
+    EMBEDDED_MILVUS="ON"
     ;;
   ?)
     echo "ERROR! unknown argument"
@@ -82,6 +87,7 @@ CMAKE_CMD="cmake \
 ${CMAKE_EXTRA_ARGS} \
 -DCMAKE_INSTALL_PREFIX=${OUTPUT_LIB} \
 -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+-DEMBEDDED_MILVUS=${EMBEDDED_MILVUS} \
 -DCUSTOM_THIRDPARTY_DOWNLOAD_PATH=${CUSTOM_THIRDPARTY_PATH} ${SRC_DIR}"
 
 ${CMAKE_CMD} -G "${CMAKE_GENERATOR}"
