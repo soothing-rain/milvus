@@ -87,10 +87,6 @@ func (p *ComponentParam) PulsarEnable() bool {
 	return p.PulsarCfg.Address != ""
 }
 
-func (p *ComponentParam) KafkaEnable() bool {
-	return p.KafkaCfg.Address != ""
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // --- common ---
 type commonConfig struct {
@@ -124,7 +120,6 @@ type commonConfig struct {
 
 	SimdType       string
 	IndexSliceSize int64
-	StorageType    string
 }
 
 func (p *commonConfig) init(base *BaseTable) {
@@ -159,7 +154,6 @@ func (p *commonConfig) init(base *BaseTable) {
 
 	p.initSimdType()
 	p.initIndexSliceSize()
-	p.initStorageType()
 }
 
 func (p *commonConfig) initClusterPrefix() {
@@ -338,10 +332,6 @@ func (p *commonConfig) initSimdType() {
 
 func (p *commonConfig) initIndexSliceSize() {
 	p.IndexSliceSize = p.Base.ParseInt64WithDefault("common.indexSliceSize", DefaultIndexSliceSize)
-}
-
-func (p *commonConfig) initStorageType() {
-	p.StorageType = p.Base.LoadWithDefault("storageType", "minio")
 }
 
 ///////////////////////////////////////////////////////////////////////////////

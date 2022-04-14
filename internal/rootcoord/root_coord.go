@@ -467,6 +467,9 @@ func (c *Core) getSegments(ctx context.Context, collID typeutil.UniqueID) (map[t
 }
 
 func (c *Core) setMsgStreams() error {
+	if Params.PulsarCfg.Address == "" {
+		return fmt.Errorf("pulsar address is empty")
+	}
 	if Params.CommonCfg.RootCoordSubName == "" {
 		return fmt.Errorf("RootCoordSubName is empty")
 	}

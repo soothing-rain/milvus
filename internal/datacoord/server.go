@@ -249,7 +249,6 @@ func (s *Server) initSession() error {
 // Init change server state to Initializing
 func (s *Server) Init() error {
 	atomic.StoreInt64(&s.isServing, ServerStateInitializing)
-	s.factory.Init(&Params)
 	return s.initSession()
 }
 
@@ -262,6 +261,7 @@ func (s *Server) Init() error {
 // 4. set server state to Healthy
 func (s *Server) Start() error {
 	var err error
+	s.factory.Init(&Params)
 	if err = s.initRootCoordClient(); err != nil {
 		return err
 	}

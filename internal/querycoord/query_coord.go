@@ -160,8 +160,6 @@ func (qc *QueryCoord) Init() error {
 			return idAllocator.AllocOne()
 		}
 
-		qc.factory.Init(&Params)
-
 		// init meta
 		qc.meta, initError = newMeta(qc.loopCtx, qc.kvClient, qc.factory, qc.idAllocator)
 		if initError != nil {
@@ -219,6 +217,7 @@ func (qc *QueryCoord) Init() error {
 
 // Start function starts the goroutines to watch the meta and node updates
 func (qc *QueryCoord) Start() error {
+	qc.factory.Init(&Params)
 	qc.scheduler.Start()
 	log.Debug("start scheduler ...")
 

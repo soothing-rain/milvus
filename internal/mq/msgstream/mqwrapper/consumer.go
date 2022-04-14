@@ -59,12 +59,11 @@ type Consumer interface {
 	// Seek to the uniqueID position
 	Seek(MessageID, bool) error //nolint:govet
 
-	// Ack make sure that msg is received
+	// Make sure that msg is received. Only used in pulsar
 	Ack(Message)
 
 	// Close consumer
 	Close()
 
-	// GetLatestMsgID return the latest message ID
 	GetLatestMsgID() (MessageID, error)
 }

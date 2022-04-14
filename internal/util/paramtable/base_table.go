@@ -225,10 +225,6 @@ func (gp *BaseTable) LoadYaml(fileName string) error {
 	return nil
 }
 
-func (gp *BaseTable) Get(key string) string {
-	return gp.params.Get(strings.ToLower(key))
-}
-
 func (gp *BaseTable) Remove(key string) error {
 	return gp.params.Remove(strings.ToLower(key))
 }
@@ -417,23 +413,12 @@ func (gp *BaseTable) SetLogger(id UniqueID) {
 	}
 }
 
-func (gp *BaseTable) loadKafkaConfig() {
-	brokerList := os.Getenv("KAFKA_BROKER_LIST")
-	if brokerList == "" {
-		brokerList = gp.Get("kafka.brokerList")
-	}
-	gp.Save("_KafkaBrokerList", brokerList)
-}
-
 func (gp *BaseTable) loadPulsarConfig() {
 	pulsarAddress := os.Getenv("PULSAR_ADDRESS")
 	if pulsarAddress == "" {
-		pulsarHost := gp.Get("pulsar.address")
-		port := gp.Get("pulsar.port")
-
-		if len(pulsarHost) != 0 && len(port) != 0 {
-			pulsarAddress = "pulsar://" + pulsarHost + ":" + port
-		}
+		pulsarHost := gp.LoadWithDefault("pulsar.address", DefaultPulsarHost)
+		port := gp.LoadWithDefault("pulsar.port", DefaultPulsarPort)
+		pulsarAddress = "pulsar://" + pulsarHost + ":" + port
 	}
 
 	gp.Save("_PulsarAddress", pulsarAddress)
@@ -442,14 +427,13 @@ func (gp *BaseTable) loadPulsarConfig() {
 func (gp *BaseTable) loadRocksMQConfig() {
 	rocksmqPath := os.Getenv("ROCKSMQ_PATH")
 	if rocksmqPath == "" {
-		rocksmqPath = gp.Get("rocksmq.path")
+		rocksmqPath = gp.LoadWithDefault("rocksmq.path", DefaultRocksmqPath)
 	}
 	gp.Save("_RocksmqPath", rocksmqPath)
 }
 
 func (gp *BaseTable) loadMQConfig() {
 	gp.loadPulsarConfig()
-	gp.loadKafkaConfig()
 	gp.loadRocksMQConfig()
 }
 
