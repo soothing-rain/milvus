@@ -866,7 +866,7 @@ func importFlushReqFunc(node *DataNode, req *datapb.ImportTaskRequest, res *root
 				ChannelName:  req.ImportTask.ChannelNames[shardNum],
 				Count:        1,
 				CollectionID: req.GetImportTask().GetCollectionId(),
-				PartitionID:  req.GetImportTask().GetCollectionId(),
+				PartitionID:  req.GetImportTask().GetPartitionId(),
 			},
 		}
 		segmentIDReq := &datapb.AssignSegmentIDRequest{
@@ -906,6 +906,12 @@ func importFlushReqFunc(node *DataNode, req *datapb.ImportTaskRequest, res *root
 			}
 		}
 		fields[common.RowIDField] = fields[pkFieldID]
+		node.dataCoord.UpdateSegmentStatistics(context.TODO(), &datapb.UpdateSegmentStatisticsRequest{
+			Stats: []*datapb.SegmentStats{{
+				SegmentID: segmentID,
+				NumRows:   int64(rowNum),
+			}},
+		})
 
 		data := BufferData{buffer: &InsertData{
 			Data: fields,
@@ -1007,6 +1013,7 @@ func importFlushReqFunc(node *DataNode, req *datapb.ImportTaskRequest, res *root
 			Field2BinlogPaths:   fieldInsert,
 			Field2StatslogPaths: fieldStats,
 			Importing:           true,
+			Flushed:             true,
 		}
 
 		err = retry.Do(context.Background(), func() error {

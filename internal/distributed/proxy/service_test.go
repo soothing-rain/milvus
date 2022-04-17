@@ -498,6 +498,10 @@ func (m *MockDataCoord) Import(ctx context.Context, req *datapb.ImportTaskReques
 	return nil, nil
 }
 
+func (m *MockDataCoord) UpdateSegmentStatistics(ctx context.Context, req *datapb.UpdateSegmentStatisticsRequest) (*datapb.Empty, error) {
+	return nil, nil
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockProxy struct {
 	MockBase

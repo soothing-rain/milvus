@@ -3952,6 +3952,9 @@ func (node *Proxy) Import(ctx context.Context, req *milvuspb.ImportRequest) (*mi
 		chNames, err = node.chMgr.getVChannels(collID)
 	}
 	req.ChannelNames = chNames
+	if req.GetPartitionName() == "" {
+		req.PartitionName = Params.CommonCfg.DefaultPartitionName
+	}
 	// Call rootCoord to finish import.
 	resp, err = node.rootCoord.Import(ctx, req)
 	return resp, err

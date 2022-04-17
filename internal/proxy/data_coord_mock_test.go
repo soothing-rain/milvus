@@ -214,6 +214,10 @@ func (coord *DataCoordMock) Import(ctx context.Context, req *datapb.ImportTaskRe
 	return &datapb.ImportTaskResponse{}, nil
 }
 
+func (coord *DataCoordMock) UpdateSegmentStatistics(ctx context.Context, req *datapb.UpdateSegmentStatisticsRequest) (*datapb.Empty, error) {
+	return &datapb.Empty{}, nil
+}
+
 func NewDataCoordMock() *DataCoordMock {
 	return &DataCoordMock{
 		nodeID:            typeutil.UniqueID(uniquegenerator.GetUniqueIntGeneratorIns().GetInt()),

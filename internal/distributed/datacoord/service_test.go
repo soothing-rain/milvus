@@ -174,6 +174,10 @@ func (m *MockDataCoord) Import(ctx context.Context, req *datapb.ImportTaskReques
 	return m.importResp, m.err
 }
 
+func (m *MockDataCoord) UpdateSegmentStatistics(ctx context.Context, req *datapb.UpdateSegmentStatisticsRequest) (*datapb.Empty, error) {
+	return nil, nil
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func Test_NewServer(t *testing.T) {
 	ctx := context.Background()

@@ -348,6 +348,7 @@ func (s *Server) SaveBinlogPaths(ctx context.Context, req *datapb.SaveBinlogPath
 		req.GetSegmentID(),
 		req.GetFlushed(),
 		req.GetDropped(),
+		req.GetImporting(),
 		req.GetField2BinlogPaths(),
 		req.GetField2StatslogPaths(),
 		req.GetDeltalogs(),
@@ -1030,6 +1031,12 @@ func (s *Server) Import(ctx context.Context, itr *datapb.ImportTaskRequest) (*da
 
 	resp.Status.ErrorCode = commonpb.ErrorCode_Success
 	return resp, nil
+}
+
+// UpdateSegmentStatistics updates a segment's stats.
+func (s *Server) UpdateSegmentStatistics(ctx context.Context, req *datapb.UpdateSegmentStatisticsRequest) (*datapb.Empty, error) {
+	s.updateSegmentStatistics(req.GetStats())
+	return nil, nil
 }
 
 // getDiff returns the difference of base and remove. i.e. all items that are in `base` but not in `remove`.

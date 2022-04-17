@@ -189,7 +189,7 @@ func (m *importManager) genReqID() int64 {
 
 // importJob processes the import request, generates import tasks, sends these tasks to DataCoord, and returns
 // immediately.
-func (m *importManager) importJob(ctx context.Context, req *milvuspb.ImportRequest, cID int64) *milvuspb.ImportResponse {
+func (m *importManager) importJob(ctx context.Context, req *milvuspb.ImportRequest, cID int64, pID int64) *milvuspb.ImportResponse {
 	if req == nil || len(req.Files) == 0 {
 		return &milvuspb.ImportResponse{
 			Status: &commonpb.Status{
@@ -217,7 +217,8 @@ func (m *importManager) importJob(ctx context.Context, req *milvuspb.ImportReque
 
 	log.Debug("request received",
 		zap.String("collection name", req.GetCollectionName()),
-		zap.Int64("collection ID", cID))
+		zap.Int64("collection ID", cID),
+		zap.Int64("partition ID", pID))
 	func() {
 		m.pendingLock.Lock()
 		defer m.pendingLock.Unlock()
@@ -257,6 +258,7 @@ func (m *importManager) importJob(ctx context.Context, req *milvuspb.ImportReque
 					Id:           m.nextTaskID,
 					RequestId:    reqID,
 					CollectionId: cID,
+					PartitionId:  pID,
 					ChannelNames: req.ChannelNames,
 					Bucket:       bucket,
 					RowBased:     req.GetRowBased(),
@@ -281,6 +283,7 @@ func (m *importManager) importJob(ctx context.Context, req *milvuspb.ImportReque
 				Id:           m.nextTaskID,
 				RequestId:    reqID,
 				CollectionId: cID,
+				PartitionId:  pID,
 				ChannelNames: req.ChannelNames,
 				Bucket:       bucket,
 				RowBased:     req.GetRowBased(),

@@ -514,3 +514,14 @@ func (c *Client) Import(ctx context.Context, req *datapb.ImportTaskRequest) (*da
 	}
 	return ret.(*datapb.ImportTaskResponse), err
 }
+
+// UpdateSegmentStatistics is the client side caller of UpdateSegmentStatistics.
+func (c *Client) UpdateSegmentStatistics(ctx context.Context, req *datapb.UpdateSegmentStatisticsRequest) (*datapb.Empty, error) {
+	_, err := c.grpcClient.ReCall(ctx, func(client interface{}) (interface{}, error) {
+		if !funcutil.CheckCtxValid(ctx) {
+			return nil, ctx.Err()
+		}
+		return client.(datapb.DataCoordClient).UpdateSegmentStatistics(ctx, req)
+	})
+	return nil, err
+}
