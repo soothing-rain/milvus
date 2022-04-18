@@ -730,19 +730,15 @@ func (c *Core) SetDataCoord(ctx context.Context, s types.DataCoord) error {
 			}
 		}()
 		<-initCh
-		req := &datapb.SetSegmentStateRequest{
-			SegmentId: segID,
-			NewState:  ss,
-		}
-		resp, err := s.SetSegmentState(ctx, req)
+		resp, err := s.GetSegmentInfo(ctx, &datapb.GetSegmentInfoRequest{SegmentIDs: []int64{segID}})
 		if err != nil || resp.GetStatus().GetErrorCode() != commonpb.ErrorCode_Success {
-			log.Error("failed to update segment state",
-				zap.Any("request", req), zap.Any("response", resp), zap.Error(err))
+			log.Error("@@@@@@@@@@@@", zap.Error(err))
 			return err
 		}
-		log.Info("successfully set segment state",
-			zap.Int64("segment ID", req.GetSegmentId()),
-			zap.String("new segment state", req.GetNewState().String()))
+		log.Info("@@@@@@@@@@@@successfully get segment INFO",
+			zap.Int64("segment ID", segID),
+			zap.Any("segment state", resp.GetInfos()),
+			zap.Any("check state", resp.GetInfos()[0].GetState().String()))
 		return nil
 	}
 
@@ -2356,8 +2352,8 @@ func (c *Core) ReportImport(ctx context.Context, ir *rootcoordpb.ImportResult) (
 
 	// TODO: Resurrect index check when ready.
 	// Start a loop to check segments' index states periodically.
-	// c.wg.Add(1)
-	// go c.checkCompleteIndexLoop(ctx, ti, colName, ir.Segments)
+	c.wg.Add(1)
+	go c.checkCompleteIndexLoop(ctx, ti, colName, ir.Segments)
 
 	return &commonpb.Status{
 		ErrorCode: commonpb.ErrorCode_Success,
@@ -2460,10 +2456,8 @@ func (c *Core) CountCompleteIndex(ctx context.Context, collectionName string, co
 // (1) a certain percent of indices are built, (2) when context is done or (3) when `ImportIndexWaitLimit` has passed.
 func (c *Core) checkCompleteIndexLoop(ctx context.Context, ti *datapb.ImportTaskInfo, colName string, segIDs []UniqueID) {
 	defer c.wg.Done()
-	ticker := time.NewTicker(time.Duration(Params.RootCoordCfg.ImportIndexCheckInterval*1000) * time.Millisecond)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
-	expireTicker := time.NewTicker(time.Duration(Params.RootCoordCfg.ImportIndexWaitLimit*1000) * time.Millisecond)
-	defer expireTicker.Stop()
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -2472,20 +2466,10 @@ func (c *Core) checkCompleteIndexLoop(ctx context.Context, ti *datapb.ImportTask
 			return
 		case <-ticker.C:
 			log.Info("(in check complete index loop) check segments' index states", zap.Int64("task ID", ti.GetId()))
-			if ct, err := c.CountCompleteIndex(ctx, colName, ti.GetCollectionId(), segIDs); err == nil &&
-				segmentsOnlineReady(ct, len(segIDs)) {
-				log.Info("segment indices are ready",
-					zap.Int64("task ID", ti.GetId()),
-					zap.Int("total # of segments", len(segIDs)),
-					zap.Int("# of segments with index ready", ct))
-				c.bringSegmentsOnline(ctx, segIDs)
-				return
+			for _, id := range segIDs {
+				// Explicitly mark segment states `flushing`.
+				c.CallUpdateSegmentStateService(context.TODO(), id, commonpb.SegmentState_Flushing)
 			}
-		case <-expireTicker.C:
-			log.Info("(in check complete index loop) waited for sufficiently long time, bring segments online",
-				zap.Int64("task ID", ti.GetId()))
-			c.bringSegmentsOnline(ctx, segIDs)
-			return
 		}
 	}
 }
@@ -2495,10 +2479,7 @@ func (c *Core) checkCompleteIndexLoop(ctx context.Context, ti *datapb.ImportTask
 func (c *Core) bringSegmentsOnline(ctx context.Context, segIDs []UniqueID) {
 	log.Info("bringing import task's segments online!", zap.Any("segment IDs", segIDs))
 	// TODO: Make update on segment states atomic.
-	for _, id := range segIDs {
-		// Explicitly mark segment states `flushing`.
-		c.CallUpdateSegmentStateService(ctx, id, commonpb.SegmentState_Flushing)
-	}
+
 }
 
 // segmentsOnlineReady returns true if segments are ready to go up online (a.k.a. become searchable).

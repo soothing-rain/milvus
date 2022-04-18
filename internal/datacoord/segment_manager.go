@@ -215,7 +215,7 @@ func (s *SegmentManager) loadSegmentsFromMeta() {
 	s.segments = segmentsID
 }
 
-// AllocSegment allocate segment per request collcation, partication, channel and rows
+// AllocSegment allocate segment per request collection, partition, channel and rows.
 func (s *SegmentManager) AllocSegment(ctx context.Context, collectionID UniqueID,
 	partitionID UniqueID, channelName string, requestRows int64) ([]*Allocation, error) {
 	sp, _ := trace.StartSpanFromContext(ctx)
@@ -223,34 +223,33 @@ func (s *SegmentManager) AllocSegment(ctx context.Context, collectionID UniqueID
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// filter segments
+	// Locate all target non-growing segments.
 	segments := make([]*SegmentInfo, 0)
 	for _, segmentID := range s.segments {
 		segment := s.meta.GetSegment(segmentID)
 		if segment == nil {
-			log.Warn("Failed to get seginfo from meta", zap.Int64("id", segmentID))
+			log.Warn("while allocating segment, failed to get segment info from meta", zap.Int64("segment ID", segmentID))
 			continue
 		}
-		if !satisfy(segment, collectionID, partitionID, channelName) || !isGrowing(segment) {
+		if !matchSeg(segment, collectionID, partitionID, channelName) || !isGrowing(segment) {
 			continue
 		}
 		segments = append(segments, segment)
 	}
 
 	// Apply allocation policy.
-	maxCountPerSegment, err := s.estimateMaxNumOfRows(collectionID)
+	maxRowsPerSegment, err := s.estimateMaxNumOfRows(collectionID)
 	if err != nil {
 		return nil, err
 	}
-	newSegmentAllocations, existedSegmentAllocations := s.allocPolicy(segments,
-		requestRows, int64(maxCountPerSegment))
+	newSegAlloc, existingSegAlloc := s.allocPolicy(segments, requestRows, int64(maxRowsPerSegment))
 
-	// create new segments and add allocations
+	// Create new segments and add allocations.
 	expireTs, err := s.genExpireTs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, allocation := range newSegmentAllocations {
+	for _, allocation := range newSegAlloc {
 		segment, err := s.openNewSegment(ctx, collectionID, partitionID, channelName)
 		if err != nil {
 			return nil, err
@@ -262,18 +261,18 @@ func (s *SegmentManager) AllocSegment(ctx context.Context, collectionID UniqueID
 		}
 	}
 
-	for _, allocation := range existedSegmentAllocations {
+	for _, allocation := range existingSegAlloc {
 		allocation.ExpireTime = expireTs
 		if err := s.meta.AddAllocation(allocation.SegmentID, allocation); err != nil {
 			return nil, err
 		}
 	}
 
-	allocations := append(newSegmentAllocations, existedSegmentAllocations...)
+	allocations := append(newSegAlloc, existingSegAlloc...)
 	return allocations, nil
 }
 
-func satisfy(segment *SegmentInfo, collectionID, partitionID UniqueID, channel string) bool {
+func matchSeg(segment *SegmentInfo, collectionID, partitionID UniqueID, channel string) bool {
 	return segment.GetCollectionID() == collectionID && segment.GetPartitionID() == partitionID &&
 		segment.GetInsertChannel() == channel
 }
@@ -320,7 +319,7 @@ func (s *SegmentManager) openNewSegment(ctx context.Context, collectionID Unique
 		return nil, err
 	}
 	s.segments = append(s.segments, id)
-	log.Info("datacoord: estimateTotalRows: ",
+	log.Info("dataCoord: estimateTotalRows: ",
 		zap.Int64("CollectionID", segmentInfo.CollectionID),
 		zap.Int64("SegmentID", segmentInfo.ID),
 		zap.Int("Rows", maxNumOfRows),

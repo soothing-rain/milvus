@@ -49,39 +49,39 @@ func calBySchemaPolicy(schema *schemapb.CollectionSchema) (int, error) {
 type AllocatePolicy func(segments []*SegmentInfo, count int64,
 	maxCountPerSegment int64) ([]*Allocation, []*Allocation)
 
-// AllocatePolicyV1 v1 policy simple allocation policy using Greedy Algorithm
-func AllocatePolicyV1(segments []*SegmentInfo, count int64,
-	maxCountPerSegment int64) ([]*Allocation, []*Allocation) {
+// AllocatePolicyV1 v1 policy simple allocation policy using Greedy Algorithm.
+func AllocatePolicyV1(segments []*SegmentInfo, reqRows int64,
+	maxRowsPerSegment int64) ([]*Allocation, []*Allocation) {
 	newSegmentAllocations := make([]*Allocation, 0)
 	existedSegmentAllocations := make([]*Allocation, 0)
-	// create new segment if count >= max num
-	for count >= maxCountPerSegment {
-		allocation := getAllocation(maxCountPerSegment)
+	// Create new segment if {requested # of row exceeds} >= {max # of rows per segment}.
+	for reqRows >= maxRowsPerSegment {
+		allocation := getAllocation(maxRowsPerSegment)
 		newSegmentAllocations = append(newSegmentAllocations, allocation)
-		count -= maxCountPerSegment
+		reqRows -= maxRowsPerSegment
 	}
 
-	// allocate space for remaining count
-	if count == 0 {
+	if reqRows == 0 {
 		return newSegmentAllocations, existedSegmentAllocations
 	}
+	// Allocate space for remaining rows.
 	for _, segment := range segments {
 		var allocSize int64
 		for _, allocation := range segment.allocations {
 			allocSize += allocation.NumOfRows
 		}
 		free := segment.GetMaxRowNum() - segment.GetNumOfRows() - allocSize
-		if free < count {
+		if free < reqRows {
 			continue
 		}
-		allocation := getAllocation(count)
+		allocation := getAllocation(reqRows)
 		allocation.SegmentID = segment.GetID()
 		existedSegmentAllocations = append(existedSegmentAllocations, allocation)
 		return newSegmentAllocations, existedSegmentAllocations
 	}
 
-	// allocate new segment for remaining count
-	allocation := getAllocation(count)
+	// Allocate new segment for remaining rows.
+	allocation := getAllocation(reqRows)
 	newSegmentAllocations = append(newSegmentAllocations, allocation)
 	return newSegmentAllocations, existedSegmentAllocations
 }

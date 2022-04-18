@@ -234,7 +234,7 @@ dataNode:
 log:
   level: info # Only supports debug, info, warn, error, panic, or fatal. Default 'info'.
   file:
-    rootPath: "" # default to stdout, stderr
+    rootPath: "/tmp/milvus/standalonelogs" # default to stdout, stderr
     maxSize: 300 # MB
     maxAge: 10 # Maximum time for log retention in day.
     maxBackups: 20
