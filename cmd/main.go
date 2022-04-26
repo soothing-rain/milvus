@@ -18,10 +18,18 @@ package main
 
 import (
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/milvus-io/milvus/cmd/milvus"
 )
 
 func main() {
-	milvus.RunMilvus(os.Args)
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	milvus.RunMilvus(os.Args, sc)
 }

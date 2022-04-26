@@ -19,14 +19,29 @@ package main
 import (
 	"C"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/milvus-io/milvus/cmd/milvus"
 )
 
+var sc chan os.Signal
+
 //export startEmbedded
 func startEmbedded() {
-	os.Setenv("MILVUSCONF", "/tmp/milvus/configs/")
-	milvus.RunMilvus([]string{"", "run", "embedded"})
+	os.Setenv("MILVUSCONF", "/tmp/e-milvus/configs/")
+	sc = make(chan os.Signal, 1)
+	signal.Notify(sc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	milvus.RunMilvus([]string{"", "run", "embedded"}, sc)
+}
+
+//export stopEmbedded
+func stopEmbedded() {
+	milvus.StopMilvus(sc)
 }
 
 func main() {

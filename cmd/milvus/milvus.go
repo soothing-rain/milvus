@@ -191,12 +191,15 @@ func printUsage(w io.Writer, f *flag.Flag) {
 // create runtime folder
 func createRuntimeDir(sType string) string {
 	var writer io.Writer
+	var milvusDir string
 	if sType == typeutil.EmbeddedRole {
 		writer = io.Discard
+		milvusDir = "e-milvus"
 	} else {
 		writer = os.Stderr
+		milvusDir = "milvus"
 	}
-	runtimeDir := "/run/milvus"
+	runtimeDir := "/run/" + milvusDir
 	if runtime.GOOS == "windows" {
 		runtimeDir = "run"
 		if err := makeRuntimeDir(runtimeDir); err != nil {
@@ -205,8 +208,8 @@ func createRuntimeDir(sType string) string {
 		}
 	} else {
 		if err := makeRuntimeDir(runtimeDir); err != nil {
-			fmt.Fprintf(writer, "Set runtime dir at %s failed, set it to /tmp/milvus directory\n", runtimeDir)
-			runtimeDir = "/tmp/milvus"
+			fmt.Fprintf(writer, "Set runtime dir at %s failed, set it to /tmp/%s directory\n", runtimeDir, milvusDir)
+			runtimeDir = "/tmp/" + milvusDir
 			if err = makeRuntimeDir(runtimeDir); err != nil {
 				fmt.Fprintf(writer, "Create runtime directory at %s failed\n", runtimeDir)
 				os.Exit(-1)
@@ -216,7 +219,7 @@ func createRuntimeDir(sType string) string {
 	return runtimeDir
 }
 
-func RunMilvus(args []string) {
+func RunMilvus(args []string, sc chan os.Signal) {
 	if len(args) < 3 {
 		_, _ = fmt.Fprint(os.Stderr, "usage: milvus [command] [server type] [flags]\n")
 		return
@@ -328,7 +331,7 @@ func RunMilvus(args []string) {
 			panic(err)
 		}
 		defer removePidFile(lock)
-		role.Run(local, svrAlias)
+		role.Run(local, svrAlias, sc)
 	case "stop":
 		if err := stopPid(filename, runtimeDir); err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n\n", err.Error())
@@ -338,4 +341,8 @@ func RunMilvus(args []string) {
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command : %s\n", command)
 	}
+}
+
+func StopMilvus(sc chan os.Signal) {
+	sc <- syscall.SIGINT
 }

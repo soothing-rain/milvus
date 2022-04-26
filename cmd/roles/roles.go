@@ -21,10 +21,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	rocksmqimpl "github.com/milvus-io/milvus/internal/mq/mqimpl/rocksmq/server"
@@ -345,7 +343,7 @@ func (mr *MilvusRoles) runIndexNode(ctx context.Context, localMsg bool, alias st
 }
 
 // Run Milvus components.
-func (mr *MilvusRoles) Run(local bool, alias string) {
+func (mr *MilvusRoles) Run(local bool, alias string, sc chan os.Signal) {
 	log.Info("starting running Milvus components")
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -494,15 +492,8 @@ func (mr *MilvusRoles) Run(local bool, alias string) {
 	}
 
 	metrics.ServeHTTP(Registry)
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
 	sig := <-sc
 	log.Error("Get signal to exit\n", zap.String("signal", sig.String()))
-
 	// some deferred Stop has race with context cancel
 	cancel()
 }

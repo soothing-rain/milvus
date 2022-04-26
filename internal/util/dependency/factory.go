@@ -9,14 +9,15 @@ import (
 )
 
 type DefaultFactory struct {
-	standAlone          bool
+	standalone          bool
 	chunkManagerFactory storage.Factory
 	msgStreamFactory    msgstream.Factory
 }
 
-func NewDefaultFactory(standAlone bool) *DefaultFactory {
+// TODO: Test only. Move it to some test file.
+func NewDefaultFactory(standalone bool) *DefaultFactory {
 	return &DefaultFactory{
-		standAlone:       standAlone,
+		standalone:       standalone,
 		msgStreamFactory: msgstream.NewRmsFactory("/tmp/milvus/rocksmq/"),
 		chunkManagerFactory: storage.NewChunkManagerFactory("local", "local",
 			storage.RootPath("/tmp/milvus")),
@@ -24,7 +25,7 @@ func NewDefaultFactory(standAlone bool) *DefaultFactory {
 }
 
 func NewFactory(standAlone bool) *DefaultFactory {
-	return &DefaultFactory{standAlone: standAlone}
+	return &DefaultFactory{standalone: standAlone}
 }
 
 // Init create a msg factory(TODO only support one mq at the same time.)
@@ -53,7 +54,7 @@ func (f *DefaultFactory) Init(params *paramtable.ComponentParam) {
 	}
 
 	// init mq storage
-	if f.standAlone {
+	if f.standalone {
 		f.msgStreamFactory = f.initMQLocalService(params)
 		if f.msgStreamFactory == nil {
 			f.msgStreamFactory = f.initMQRemoteService(params)

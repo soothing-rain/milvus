@@ -51,7 +51,7 @@ type queryShardService struct {
 func newQueryShardService(ctx context.Context, historical *historical, streaming *streaming, clusterService *ShardClusterService, factory dependency.Factory) *queryShardService {
 	queryShardServiceCtx, queryShardServiceCancel := context.WithCancel(ctx)
 
-	path := Params.LoadWithDefault("localStorage.Path", "/tmp/milvus/data")
+	path, _ := Params.Load("localStorage.path")
 	enabled, _ := Params.Load("localStorage.enabled")
 	localCacheEnabled, _ := strconv.ParseBool(enabled)
 	localChunkManager := storage.NewLocalChunkManager(storage.RootPath(path))
