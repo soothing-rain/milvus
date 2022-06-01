@@ -2453,9 +2453,9 @@ func generateWatchDeltaChannelInfo(info *datapb.VchannelInfo) (*datapb.VchannelI
 	}
 	deltaChannel := proto.Clone(info).(*datapb.VchannelInfo)
 	deltaChannel.ChannelName = deltaChannelName
-	deltaChannel.UnflushedSegments = nil
-	deltaChannel.FlushedSegments = nil
-	deltaChannel.DroppedSegments = nil
+	deltaChannel.UnFlushedSegmentIDs = nil
+	deltaChannel.FlushedSegmentIDs = nil
+	deltaChannel.DroppedSegmentIDs = nil
 	return deltaChannel, nil
 }
 
