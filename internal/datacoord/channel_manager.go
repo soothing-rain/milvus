@@ -243,6 +243,7 @@ func (c *ChannelManager) bgCheckChannelsWork(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+			log.Warn("@@@@ADD LOCK in bgCheckChannelsWork")
 			c.mu.Lock()
 
 			channels := c.store.GetNodesChannels()
@@ -250,6 +251,7 @@ func (c *ChannelManager) bgCheckChannelsWork(ctx context.Context) {
 			if err != nil {
 				log.Warn("channel manager bg check failed", zap.Error(err))
 
+				log.Warn("@@@@RELEASE LOCK in bgCheckChannelsWork")
 				c.mu.Unlock()
 				continue
 			}
@@ -266,6 +268,7 @@ func (c *ChannelManager) bgCheckChannelsWork(ctx context.Context) {
 				log.Warn("channel store update error", zap.Error(err))
 			}
 
+			log.Warn("@@@@RELEASE LOCK in bgCheckChannelsWork")
 			c.mu.Unlock()
 		}
 	}
@@ -318,8 +321,12 @@ func (c *ChannelManager) getOffLines(curr []int64, old []int64) []int64 {
 
 // AddNode adds a new node to cluster and reassigns the node - channel mapping.
 func (c *ChannelManager) AddNode(nodeID int64) error {
+	log.Warn("@@@@ADD LOCK in AddNode")
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in AddNode")
+		c.mu.Unlock()
+	}()
 
 	c.store.Add(nodeID)
 
@@ -348,8 +355,12 @@ func (c *ChannelManager) AddNode(nodeID int64) error {
 // DeleteNode deletes the node from the cluster.
 // DeleteNode deletes the nodeID's watchInfos in Etcd and reassign the channels to other Nodes
 func (c *ChannelManager) DeleteNode(nodeID int64) error {
+	log.Warn("@@@@ADD LOCK in DELETENODE")
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in DELETENODE")
+		c.mu.Unlock()
+	}()
 
 	nodeChannelInfo := c.store.GetNode(nodeID)
 	if nodeChannelInfo == nil {
@@ -411,8 +422,12 @@ func (c *ChannelManager) unsubAttempt(ncInfo *NodeChannelInfo) {
 
 // Watch tries to add the channel to cluster. Watch is a no op if the channel already exists.
 func (c *ChannelManager) Watch(ch *channel) error {
+	log.Warn("@@@@ADD LOCK in WATCH")
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in WATCH")
+		c.mu.Unlock()
+	}()
 
 	updates := c.assignPolicy(c.store, []*channel{ch})
 	if len(updates) == 0 {
@@ -471,24 +486,36 @@ func (c *ChannelManager) fillChannelWatchInfoWithState(op *ChannelOp, state data
 
 // GetChannels gets channels info of registered nodes.
 func (c *ChannelManager) GetChannels() []*NodeChannelInfo {
+	log.Warn("@@@@ADD LOCK in GETCHANNELS")
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in GETCHANNELS")
+		c.mu.RUnlock()
+	}()
 
 	return c.store.GetNodesChannels()
 }
 
 // GetBufferChannels gets buffer channels.
 func (c *ChannelManager) GetBufferChannels() *NodeChannelInfo {
+	log.Warn("@@@@ADD LOCK in GetBufferChannels")
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in GetBufferChannels")
+		c.mu.RUnlock()
+	}()
 
 	return c.store.GetBufferChannelInfo()
 }
 
 // Match checks and returns whether the node ID and channel match.
 func (c *ChannelManager) Match(nodeID int64, channel string) bool {
+	log.Warn("@@@@ADD LOCK in Match")
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in Match")
+		c.mu.RUnlock()
+	}()
 
 	info := c.store.GetNode(nodeID)
 	if info == nil {
@@ -505,8 +532,12 @@ func (c *ChannelManager) Match(nodeID int64, channel string) bool {
 
 // FindWatcher finds the datanode watching the provided channel.
 func (c *ChannelManager) FindWatcher(channel string) (int64, error) {
+	log.Warn("@@@@ADD LOCK in FindWatcher")
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in FindWatcher")
+		c.mu.RUnlock()
+	}()
 
 	infos := c.store.GetNodesChannels()
 	for _, info := range infos {
@@ -529,8 +560,12 @@ func (c *ChannelManager) FindWatcher(channel string) (int64, error) {
 
 // RemoveChannel removes the channel from channel manager.
 func (c *ChannelManager) RemoveChannel(channelName string) error {
+	log.Warn("@@@@ADD LOCK in RemoveChannel")
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in RemoveChannel")
+		c.mu.Unlock()
+	}()
 
 	nodeID, ch := c.findChannel(channelName)
 	if ch == nil {
@@ -705,8 +740,12 @@ func (c *ChannelManager) watchChannelStatesLoop(ctx context.Context) {
 
 // Release writes ToRlease channel watch states for a channel
 func (c *ChannelManager) Release(nodeID UniqueID, channelName string) error {
+	log.Warn("@@@@ADD LOCK in Release")
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in Release")
+		c.mu.Unlock()
+	}()
 
 	toReleaseChannel := c.getChannelByNodeAndName(nodeID, channelName)
 	if toReleaseChannel == nil {
@@ -724,8 +763,12 @@ func (c *ChannelManager) Release(nodeID UniqueID, channelName string) error {
 
 // Reassign removes channel assignment from a datanode
 func (c *ChannelManager) Reassign(nodeID UniqueID, channelName string) error {
+	log.Warn("@@@@ADD LOCK in Reassign")
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in Reassign")
+		c.mu.Unlock()
+	}()
 
 	ch := c.getChannelByNodeAndName(nodeID, channelName)
 	if ch == nil {
@@ -765,8 +808,12 @@ func (c *ChannelManager) Reassign(nodeID UniqueID, channelName string) error {
 
 // CleanupAndReassign tries to clean up datanode's subscription, and then delete channel watch info.
 func (c *ChannelManager) CleanupAndReassign(nodeID UniqueID, channelName string) error {
+	log.Warn("@@@@ADD LOCK in CleanupAndReassign")
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		log.Warn("@@@@RELEASE LOCK in CleanupAndReassign")
+		c.mu.Unlock()
+	}()
 
 	chToCleanUp := c.getChannelByNodeAndName(nodeID, channelName)
 	if chToCleanUp == nil {
