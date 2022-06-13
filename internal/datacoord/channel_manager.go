@@ -243,8 +243,9 @@ func (c *ChannelManager) bgCheckChannelsWork(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
-			log.Warn("@@@@ADD LOCK in bgCheckChannelsWork")
+			log.Warn("@@@@ATM LOCK in bgCheckChannelsWork")
 			c.mu.Lock()
+			log.Warn("@@@@ADD LOCK in bgCheckChannelsWork")
 
 			channels := c.store.GetNodesChannels()
 			reallocates, err := c.bgChecker(channels, time.Now())
@@ -321,8 +322,9 @@ func (c *ChannelManager) getOffLines(curr []int64, old []int64) []int64 {
 
 // AddNode adds a new node to cluster and reassigns the node - channel mapping.
 func (c *ChannelManager) AddNode(nodeID int64) error {
-	log.Warn("@@@@ADD LOCK in AddNode")
+	log.Warn("@@@@ATM LOCK in AddNode")
 	c.mu.Lock()
+	log.Warn("@@@@ADD LOCK in AddNode")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in AddNode")
 		c.mu.Unlock()
@@ -355,8 +357,9 @@ func (c *ChannelManager) AddNode(nodeID int64) error {
 // DeleteNode deletes the node from the cluster.
 // DeleteNode deletes the nodeID's watchInfos in Etcd and reassign the channels to other Nodes
 func (c *ChannelManager) DeleteNode(nodeID int64) error {
-	log.Warn("@@@@ADD LOCK in DELETENODE")
+	log.Warn("@@@@ATM LOCK in DELETENODE")
 	c.mu.Lock()
+	log.Warn("@@@@ADD LOCK in DELETENODE")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in DELETENODE")
 		c.mu.Unlock()
@@ -422,8 +425,9 @@ func (c *ChannelManager) unsubAttempt(ncInfo *NodeChannelInfo) {
 
 // Watch tries to add the channel to cluster. Watch is a no op if the channel already exists.
 func (c *ChannelManager) Watch(ch *channel) error {
-	log.Warn("@@@@ADD LOCK in WATCH")
+	log.Warn("@@@@ATM LOCK in WATCH")
 	c.mu.Lock()
+	log.Warn("@@@@ADD LOCK in WATCH")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in WATCH")
 		c.mu.Unlock()
@@ -486,8 +490,9 @@ func (c *ChannelManager) fillChannelWatchInfoWithState(op *ChannelOp, state data
 
 // GetChannels gets channels info of registered nodes.
 func (c *ChannelManager) GetChannels() []*NodeChannelInfo {
-	log.Warn("@@@@ADD LOCK in GETCHANNELS")
+	log.Warn("@@@@ATM LOCK in GETCHANNELS")
 	c.mu.RLock()
+	log.Warn("@@@@ADD LOCK in GETCHANNELS")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in GETCHANNELS")
 		c.mu.RUnlock()
@@ -498,8 +503,9 @@ func (c *ChannelManager) GetChannels() []*NodeChannelInfo {
 
 // GetBufferChannels gets buffer channels.
 func (c *ChannelManager) GetBufferChannels() *NodeChannelInfo {
-	log.Warn("@@@@ADD LOCK in GetBufferChannels")
+	log.Warn("@@@@ATM LOCK in GetBufferChannels")
 	c.mu.RLock()
+	log.Warn("@@@@ADD LOCK in GetBufferChannels")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in GetBufferChannels")
 		c.mu.RUnlock()
@@ -510,8 +516,9 @@ func (c *ChannelManager) GetBufferChannels() *NodeChannelInfo {
 
 // Match checks and returns whether the node ID and channel match.
 func (c *ChannelManager) Match(nodeID int64, channel string) bool {
-	log.Warn("@@@@ADD LOCK in Match")
+	log.Warn("@@@@ATM LOCK in Match")
 	c.mu.RLock()
+	log.Warn("@@@@ADD LOCK in Match")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in Match")
 		c.mu.RUnlock()
@@ -532,8 +539,9 @@ func (c *ChannelManager) Match(nodeID int64, channel string) bool {
 
 // FindWatcher finds the datanode watching the provided channel.
 func (c *ChannelManager) FindWatcher(channel string) (int64, error) {
-	log.Warn("@@@@ADD LOCK in FindWatcher")
+	log.Warn("@@@@ATM LOCK in FindWatcher")
 	c.mu.RLock()
+	log.Warn("@@@@ADD LOCK in FindWatcher")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in FindWatcher")
 		c.mu.RUnlock()
@@ -560,8 +568,9 @@ func (c *ChannelManager) FindWatcher(channel string) (int64, error) {
 
 // RemoveChannel removes the channel from channel manager.
 func (c *ChannelManager) RemoveChannel(channelName string) error {
-	log.Warn("@@@@ADD LOCK in RemoveChannel")
+	log.Warn("@@@@ATM LOCK in RemoveChannel")
 	c.mu.Lock()
+	log.Warn("@@@@ADD LOCK in RemoveChannel")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in RemoveChannel")
 		c.mu.Unlock()
@@ -740,8 +749,9 @@ func (c *ChannelManager) watchChannelStatesLoop(ctx context.Context) {
 
 // Release writes ToRlease channel watch states for a channel
 func (c *ChannelManager) Release(nodeID UniqueID, channelName string) error {
-	log.Warn("@@@@ADD LOCK in Release")
+	log.Warn("@@@@ATM LOCK in Release")
 	c.mu.Lock()
+	log.Warn("@@@@ADD LOCK in Release")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in Release")
 		c.mu.Unlock()
@@ -763,8 +773,9 @@ func (c *ChannelManager) Release(nodeID UniqueID, channelName string) error {
 
 // Reassign removes channel assignment from a datanode
 func (c *ChannelManager) Reassign(nodeID UniqueID, channelName string) error {
-	log.Warn("@@@@ADD LOCK in Reassign")
+	log.Warn("@@@@ATM LOCK in Reassign")
 	c.mu.Lock()
+	log.Warn("@@@@ADD LOCK in Reassign")
 	defer func() {
 		log.Warn("@@@@RELEASE LOCK in Reassign")
 		c.mu.Unlock()
