@@ -7,8 +7,8 @@ from common.common_func import gen_unique_str
 from minio_comm import copy_files_to_minio
 
 # TODO: remove hardcode with input configurations
-minio = "minio_address:port"     # minio service and port
-bucket_name = "milvus-bulk-load"  # bucket name of milvus is using
+minio = "localhost:9000"     # minio service and port
+bucket_name = "a-bucket"  # bucket name of milvus is using
 
 data_source = "/tmp/bulk_load_data"
 
