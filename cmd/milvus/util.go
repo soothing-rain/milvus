@@ -54,7 +54,11 @@ func createRuntimeDir(sType string) string {
 	} else {
 		if err := makeRuntimeDir(runtimeDir); err != nil {
 			fmt.Fprintf(writer, "Set runtime dir at %s failed, set it to /tmp/milvus directory\n", runtimeDir)
-			runtimeDir = "/tmp/milvus"
+			if sType == typeutil.EmbeddedRole {
+				runtimeDir = "/var/bin/e-milvus"
+			} else {
+				runtimeDir = "/tmp/milvus"
+			}
 			if err = makeRuntimeDir(runtimeDir); err != nil {
 				fmt.Fprintf(writer, "Create runtime directory at %s failed\n", runtimeDir)
 				os.Exit(-1)

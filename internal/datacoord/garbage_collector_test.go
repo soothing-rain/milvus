@@ -256,19 +256,17 @@ func Test_garbageCollector_scan(t *testing.T) {
 			checkInterval:    time.Minute * 30,
 			missingTolerance: 0,
 			dropTolerance:    0,
-			bucketName:       bucketName,
 			rootPath:         rootPath,
 		})
 		gc.start()
 
-		gc.option.bucketName = ""
 		gc.scan()
 
 		// bad path shall remains since datacoord cannot determine file is garbage or not if path is not valid
-		validateMinioPrefixElements(t, cli, bucketName, path.Join(rootPath, insertLogPrefix), inserts[1:2])
-		validateMinioPrefixElements(t, cli, bucketName, path.Join(rootPath, statsLogPrefix), stats[1:2])
-		validateMinioPrefixElements(t, cli, bucketName, path.Join(rootPath, deltaLogPrefix), delta[1:2])
-		validateMinioPrefixElements(t, cli, bucketName, path.Join(rootPath, `indexes`), others)
+		validateMinioPrefixElements(t, cli.Client, bucketName, path.Join(rootPath, insertLogPrefix), inserts[1:2])
+		validateMinioPrefixElements(t, cli.Client, bucketName, path.Join(rootPath, statsLogPrefix), stats[1:2])
+		validateMinioPrefixElements(t, cli.Client, bucketName, path.Join(rootPath, deltaLogPrefix), delta[1:2])
+		validateMinioPrefixElements(t, cli.Client, bucketName, path.Join(rootPath, `indexes`), others)
 
 		gc.close()
 	})

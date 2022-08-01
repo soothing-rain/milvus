@@ -456,7 +456,6 @@ func (gp *BaseTable) loadPulsarConfig() {
 	webport := gp.LoadWithDefault("pulsar.webport", "80")
 	pulsarWebAddress := "http://" + pulsarURL.Hostname() + ":" + webport
 	gp.Save("_PulsarWebAddress", pulsarWebAddress)
-	log.Info("Pulsar config", zap.String("pulsar url", pulsarAddress), zap.String("pulsar web url", pulsarWebAddress))
 }
 
 func (gp *BaseTable) loadRocksMQConfig() {

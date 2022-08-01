@@ -25,7 +25,7 @@ import (
 
 //export startEmbedded
 func startEmbedded() {
-	os.Setenv("MILVUSCONF", "/tmp/milvus/configs/")
+	os.Setenv("MILVUSCONF", "/var/bin/e-milvus/configs/")
 	milvus.RunMilvus([]string{"", "run", "embedded"})
 }
 
