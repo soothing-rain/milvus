@@ -171,7 +171,7 @@ func (w *watchDmChannelsTask) Execute(ctx context.Context) (err error) {
 		for _, ufInfoID := range info.GetUnflushedSegmentIds() {
 			// unFlushed segment may not have binLogs, skip loading
 			ufInfo := w.req.SegmentInfos[ufInfoID]
-			if len(ufInfo.Binlogs) > 0 {
+			if len(ufInfo.GetBinlogs()) > 0 {
 				unFlushedSegments = append(unFlushedSegments, &queryPb.SegmentLoadInfo{
 					SegmentID:     ufInfo.ID,
 					PartitionID:   ufInfo.PartitionID,
