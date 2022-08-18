@@ -1025,6 +1025,7 @@ func importFlushReqFunc(node *DataNode, req *datapb.ImportTaskRequest, res *root
 			NumRows: []int64{int64(rowNum)},
 		}
 
+		log.Info("Updating segment stats in importFlushReqFunc")
 		if status, _ := node.dataCoord.UpdateSegmentStatistics(context.TODO(), &datapb.UpdateSegmentStatisticsRequest{
 			Stats: []*datapb.SegmentStats{{
 				SegmentID: segmentID,
