@@ -48,7 +48,7 @@ type SegmentInfo struct {
 func NewSegmentInfo(info *datapb.SegmentInfo) *SegmentInfo {
 	return &SegmentInfo{
 		SegmentInfo:   info,
-		currRows:      0,
+		currRows:      info.GetNumOfRows(),
 		allocations:   make([]*Allocation, 0, 16),
 		lastFlushTime: time.Now().Add(-1 * flushInterval),
 	}

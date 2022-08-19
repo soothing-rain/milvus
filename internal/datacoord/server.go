@@ -974,7 +974,7 @@ func (s *Server) reCollectSegmentStats(ctx context.Context) {
 		log.Error("null channel manager found, which should NOT happen in non-testing environment")
 		return
 	}
-	nodes := s.channelManager.store.GetNodes()
+	nodes := s.sessionManager.getLiveNodeIDs()
 	log.Info("re-collecting segment stats from DataNodes",
 		zap.Int64s("DataNode IDs", nodes))
 	for _, node := range nodes {
