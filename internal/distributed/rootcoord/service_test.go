@@ -230,14 +230,8 @@ func TestGrpcService(t *testing.T) {
 	core.CallReleasePartitionService = func(ctx context.Context, ts typeutil.Timestamp, dbID, collectionID typeutil.UniqueID, partitionIDs []typeutil.UniqueID) error {
 		return nil
 	}
-	core.CallImportService = func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
-		return nil
-	}
-	core.CallAddSegRefLock = func(context.Context, int64, []int64) error {
-		return nil
-	}
-	core.CallReleaseSegRefLock = func(context.Context, int64, []int64) error {
-		return nil
+	core.CallImportService = func(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error) {
+		return nil, nil
 	}
 
 	err = svr.start()
@@ -813,6 +807,17 @@ func TestGrpcService(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(dropCollectionArray))
 		assert.Equal(t, commonpb.ErrorCode_UnexpectedError, status.ErrorCode)
+	})
+
+	t.Run("getImportFailedSegmentIDs", func(t *testing.T) {
+		req := &internalpb.GetImportFailedSegmentIDsRequest{
+			Base: &commonpb.MsgBase{
+				MsgType: commonpb.MsgType_GetImportFailedSegmentIDs,
+			},
+		}
+		rsp, err := cli.GetImportFailedSegmentIDs(ctx, req)
+		assert.True(t, len(rsp.GetSegmentIDs()) >= 0)
+		assert.Nil(t, err)
 	})
 
 	err = cli.Stop()
