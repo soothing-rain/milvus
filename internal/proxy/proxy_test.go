@@ -414,6 +414,8 @@ func TestProxy(t *testing.T) {
 	localMsg := true
 	factory := dependency.NewDefaultFactory(localMsg)
 	alias := "TestProxy"
+	CheckTaskPersistedInterval = 10 * time.Millisecond
+	CheckTaskPersistedWaitLimit = 100 * time.Millisecond
 
 	Params.InitOnce()
 	log.Info("Initialize parameter table of Proxy")
@@ -1617,6 +1619,8 @@ func TestProxy(t *testing.T) {
 		resp, err := proxy.Import(context.TODO(), req)
 		assert.EqualValues(t, commonpb.ErrorCode_Success, resp.Status.ErrorCode)
 		assert.Nil(t, err)
+		// Wait a bit for complete import to start.
+		time.Sleep(2 * time.Second)
 	})
 
 	wg.Add(1)
