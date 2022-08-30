@@ -768,8 +768,6 @@ func TestRootCoord_Base(t *testing.T) {
 	Params.RootCoordCfg.DmlChannelNum = TestDMLChannelNum
 	Params.RootCoordCfg.ImportIndexCheckInterval = 0.1
 	Params.RootCoordCfg.ImportIndexWaitLimit = 0.2
-	Params.RootCoordCfg.ImportSegmentStateCheckInterval = 0.1
-	Params.RootCoordCfg.ImportSegmentStateWaitLimit = 0.2
 	core, err := NewCore(context.WithValue(ctx, ctxKey{}, ""), coreFactory)
 	assert.NoError(t, err)
 	randVal := rand.Int()
@@ -1183,25 +1181,117 @@ func TestRootCoord_Base(t *testing.T) {
 		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
 		assert.NoError(t, err)
 		// Normal case.
-		done, err := core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, ""),
-			collName, coll.CollectionID, []UniqueID{1000, 1001, 1002})
+		done, err := core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, ""),
+			collName, coll.GetID(), []UniqueID{1000, 1001, 1002})
 		assert.NoError(t, err)
 		assert.Equal(t, true, done)
 		// Case with an empty result.
-		done, err = core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, ""), collName, coll.CollectionID, []UniqueID{})
+		done, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, ""), collName, coll.GetID(), []UniqueID{})
 		assert.NoError(t, err)
 		assert.Equal(t, true, done)
 		// Case where GetIndexStates failed with error.
-		_, err = core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, returnError),
-			collName, coll.CollectionID, []UniqueID{1000, 1001, 1002})
+		_, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, returnError),
+			collName, coll.GetID(), []UniqueID{1000, 1001, 1002})
 		assert.Error(t, err)
 		// Case where GetIndexStates failed with bad status.
-		_, err = core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, returnUnsuccessfulStatus),
-			collName, coll.CollectionID, []UniqueID{1000, 1001, 1002})
+		_, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, returnUnsuccessfulStatus),
+			collName, coll.GetID(), []UniqueID{1000, 1001, 1002})
 		assert.Error(t, err)
 		// Case where describing segment fails, which is not considered as an error.
-		_, err = core.CountCompleteIndex(context.WithValue(ctx, ctxKey{}, ""),
-			collName, coll.CollectionID, []UniqueID{9000, 9001, 9002})
+		_, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, ""),
+			collName, coll.GetID(), []UniqueID{9000, 9001, 9002})
+		assert.NoError(t, err)
+	})
+
+	wg.Add(1)
+	t.Run("check segment index ready with collect name not found", func(t *testing.T) {
+		defer wg.Done()
+		// Check the case where the collection ID is not found.
+		req := &internalpb.CheckSegmentIndexReadyRequest{
+			TaskID: 199,          // Some random ID.
+			ColID:  299,          // Some random ID.
+			SegIDs: []int64{399}, // Some random ID.
+		}
+		rsp, err := core.CheckSegmentIndexReady(ctx, req)
+		assert.Equal(t, commonpb.ErrorCode_CollectionNameNotFound, rsp.GetErrorCode())
+		assert.NoError(t, err)
+	})
+
+	wg.Add(1)
+	t.Run("check segment index ready time out", func(t *testing.T) {
+		defer wg.Done()
+		collMeta, err := core.MetaTable.GetCollectionByName(collName, 0)
+		assert.NoError(t, err)
+		// Check the case where the collection exists.
+		req := &internalpb.CheckSegmentIndexReadyRequest{
+			TaskID: 199,              // Some random ID.
+			ColID:  collMeta.GetID(), // The correct collection ID.
+			SegIDs: []int64{399},     // Some random ID.
+		}
+		// Expect check segment index ready to timeout as we cannot describe the invalid segment correctly.
+		rsp, err := core.CheckSegmentIndexReady(context.WithValue(ctx, ctxKey{}, ""), req)
+		assert.Equal(t, commonpb.ErrorCode_UnexpectedError, rsp.GetErrorCode())
+		assert.NoError(t, err)
+	})
+
+	wg.Add(1)
+	t.Run("check segment index ready succeeds", func(t *testing.T) {
+		defer wg.Done()
+		collMeta, err := core.MetaTable.GetCollectionByName(collName, 0)
+		assert.NoError(t, err)
+		// Check the case where the collection exists.
+		req := &internalpb.CheckSegmentIndexReadyRequest{
+			TaskID: 199,                       // Some random ID.
+			ColID:  collMeta.GetID(),          // The correct collection ID.
+			SegIDs: []int64{1000, 1001, 1002}, // Some random ID.
+		}
+		rsp, err := core.CheckSegmentIndexReady(context.WithValue(ctx, ctxKey{}, ""), req)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.GetErrorCode())
+		assert.NoError(t, err)
+	})
+
+	wg.Add(1)
+	t.Run("flush segment", func(t *testing.T) {
+		defer wg.Done()
+		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
+		assert.NoError(t, err)
+		partID := coll.PartitionIDs[1]
+
+		flushMsg := datapb.SegmentFlushCompletedMsg{
+			Base: &commonpb.MsgBase{
+				MsgType: commonpb.MsgType_SegmentFlushDone,
+			},
+			Segment: &datapb.SegmentInfo{
+				ID:           segID,
+				CollectionID: coll.ID,
+				PartitionID:  partID,
+			},
+		}
+		st, err := core.SegmentFlushCompleted(ctx, &flushMsg)
+		assert.NoError(t, err)
+		assert.Equal(t, st.ErrorCode, commonpb.ErrorCode_Success)
+
+		req := &milvuspb.DescribeIndexRequest{
+			Base: &commonpb.MsgBase{
+				MsgType:   commonpb.MsgType_DescribeIndex,
+				MsgID:     210,
+				Timestamp: 210,
+				SourceID:  210,
+			},
+			DbName:         "",
+			CollectionName: collName,
+			FieldName:      "vector",
+			IndexName:      "",
+		}
+		rsp, err := core.DescribeIndex(ctx, req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
+		assert.Equal(t, 1, len(rsp.IndexDescriptions))
+		assert.Equal(t, Params.CommonCfg.DefaultIndexName, rsp.IndexDescriptions[0].IndexName)
+	})
+
+	t.Run("flush segment from compaction", func(t *testing.T) {
+		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
 		assert.NoError(t, err)
 	})
 
@@ -1261,125 +1351,28 @@ func TestRootCoord_Base(t *testing.T) {
 	})
 
 	wg.Add(1)
+	t.Run("report import illegal task", func(t *testing.T) {
+		defer wg.Done()
+		assert.NoError(t, err)
+		req := &rootcoordpb.ImportResult{
+			TaskId:   -1,
+			RowCount: 100,
+			Segments: []int64{1003, 1004, 1005},
+			State:    commonpb.ImportState_ImportPersisted,
+		}
+		rsp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), req)
+		assert.NoError(t, err)
+		assert.Equal(t, commonpb.ErrorCode_UpdateImportTaskFailure, rsp.ErrorCode)
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	wg.Add(1)
 	t.Run("report import update import task fail", func(t *testing.T) {
 		defer wg.Done()
 		// Case where report import request is nil.
 		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), nil)
 		assert.NoError(t, err)
 		assert.Equal(t, commonpb.ErrorCode_UpdateImportTaskFailure, resp.ErrorCode)
-	})
-
-	wg.Add(1)
-	t.Run("report import collection name not found", func(t *testing.T) {
-		defer wg.Done()
-		var tID = typeutil.UniqueID(100)
-		core.importManager.idAllocator = func(count uint32) (typeutil.UniqueID, typeutil.UniqueID, error) {
-			tID++
-			return tID, 0, nil
-		}
-		core.MetaTable.collName2ID["new"+collName] = 123
-		core.MetaTable.collID2Meta[123] = model.Collection{
-			CollectionID: 123,
-			Partitions: []*model.Partition{
-				{
-					PartitionID:   456,
-					PartitionName: "testPartition",
-				},
-			},
-		}
-		req := &milvuspb.ImportRequest{
-			CollectionName: "new" + collName,
-			PartitionName:  partName,
-			RowBased:       true,
-			Files:          []string{"f1", "f2", "f3"},
-		}
-		rsp, err := core.Import(ctx, req)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
-		delete(core.MetaTable.collName2ID, "new"+collName)
-		delete(core.MetaTable.collID2Meta, 123)
-
-		reqIR := &rootcoordpb.ImportResult{
-			TaskId:   101,
-			RowCount: 100,
-			Segments: []int64{1003, 1004, 1005},
-			State:    commonpb.ImportState_ImportPersisted,
-		}
-		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), reqIR)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_CollectionNameNotFound, resp.ErrorCode)
-	})
-
-	wg.Add(1)
-	t.Run("report import with transitional state", func(t *testing.T) {
-		defer wg.Done()
-		req := &rootcoordpb.ImportResult{
-			TaskId:   1,
-			RowCount: 100,
-			Segments: []int64{1000, 1001, 1002},
-			State:    commonpb.ImportState_ImportDownloaded,
-		}
-		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), req)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
-		time.Sleep(500 * time.Millisecond)
-	})
-
-	wg.Add(1)
-	t.Run("report import with alloc seg state", func(t *testing.T) {
-		defer wg.Done()
-		req := &rootcoordpb.ImportResult{
-			TaskId:   1,
-			RowCount: 100,
-			Segments: []int64{1000, 1001, 1002},
-			State:    commonpb.ImportState_ImportAllocSegment,
-		}
-		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), req)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
-		time.Sleep(500 * time.Millisecond)
-	})
-
-	wg.Add(1)
-	t.Run("report import wait for index", func(t *testing.T) {
-		defer wg.Done()
-		core.CallGetSegmentInfoService = func(ctx context.Context, collectionID int64,
-			segIDs []int64) (*querypb.GetSegmentInfoResponse, error) {
-			return &querypb.GetSegmentInfoResponse{
-				Status: &commonpb.Status{
-					ErrorCode: commonpb.ErrorCode_Success,
-				},
-				Infos: []*querypb.SegmentInfo{
-					{SegmentID: 1000},
-					{SegmentID: 1001},
-					{SegmentID: 1002},
-				},
-			}, nil
-		}
-		req := &rootcoordpb.ImportResult{
-			TaskId:   1,
-			RowCount: 100,
-			Segments: []int64{1000, 1001, 1002},
-			State:    commonpb.ImportState_ImportPersisted,
-		}
-		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), req)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
-		time.Sleep(500 * time.Millisecond)
-	})
-
-	wg.Add(1)
-	t.Run("report import bring segments online with set segment state fail", func(t *testing.T) {
-		defer wg.Done()
-		req := &rootcoordpb.ImportResult{
-			TaskId:   1,
-			RowCount: 100,
-			Segments: []int64{999}, /* pre-injected failure for segment ID = 999 */
-			State:    commonpb.ImportState_ImportPersisted,
-		}
-		resp, err := core.ReportImport(context.WithValue(ctx, ctxKey{}, ""), req)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
 	})
 
 	wg.Add(1)
@@ -2323,7 +2316,21 @@ func TestRootCoord_Base(t *testing.T) {
 		}
 		p2, err := core.AllocID(ctx, r2)
 		assert.NoError(t, err)
-		assert.NotEqual(t, commonpb.ErrorCode_Success, p2.Status.ErrorCode)
+		assert.NotEqual(t, commonpb.ErrorCode_Success, p2.GetStatus().GetErrorCode())
+	})
+
+	wg.Add(1)
+	t.Run("getImportFailedSegmentIDs", func(t *testing.T) {
+		defer wg.Done()
+		req := &internalpb.GetImportFailedSegmentIDsRequest{
+			Base: &commonpb.MsgBase{
+				MsgType: commonpb.MsgType_GetImportFailedSegmentIDs,
+			},
+		}
+		rsp, err := core.GetImportFailedSegmentIDs(ctx, req)
+		assert.True(t, len(rsp.GetSegmentIDs()) >= 0)
+		assert.Nil(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, rsp.GetStatus().GetErrorCode())
 	})
 
 	wg.Wait()
@@ -2583,27 +2590,13 @@ func TestCheckInit(t *testing.T) {
 	err = c.checkInit()
 	assert.Error(t, err)
 
-	c.CallImportService = func(ctx context.Context, req *datapb.ImportTaskRequest) *datapb.ImportTaskResponse {
+	c.CallImportService = func(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error) {
 		return &datapb.ImportTaskResponse{
 			Status: &commonpb.Status{
 				ErrorCode: commonpb.ErrorCode_Success,
 			},
-		}
+		}, nil
 	}
-	err = c.checkInit()
-	assert.Error(t, err)
-
-	c.CallAddSegRefLock = func(context.Context, int64, []int64) error {
-		return nil
-	}
-	err = c.checkInit()
-	assert.Error(t, err)
-
-	c.CallReleaseSegRefLock = func(context.Context, int64, []int64) error {
-		return nil
-	}
-	err = c.checkInit()
-	assert.NoError(t, err)
 
 	err = c.Stop()
 	assert.NoError(t, err)
