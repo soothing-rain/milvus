@@ -392,6 +392,19 @@ func (idx *indexMock) GetSegmentIndexState(ctx context.Context, req *indexpb.Get
 	}, nil
 }
 
+func (idx *indexMock) DescribeIndex(ctx context.Context, req *indexpb.DescribeIndexRequest) (*indexpb.DescribeIndexResponse, error) {
+	return &indexpb.DescribeIndexResponse{
+		Status: &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_Success,
+			Reason:    "",
+		},
+		IndexInfos: []*indexpb.IndexInfo{
+			{IndexName: "_default"},
+			{IndexName: "_new_index"},
+		},
+	}, nil
+}
+
 func clearMsgChan(timeout time.Duration, targetChan <-chan *msgstream.MsgPack) {
 	ch := time.After(timeout)
 	for {
@@ -1182,24 +1195,29 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.NoError(t, err)
 		// Normal case.
 		done, err := core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, ""),
-			collName, coll.GetID(), []UniqueID{1000, 1001, 1002})
+			collName, coll.CollectionID, []*indexpb.IndexInfo{{IndexName: "_default"}, {IndexName: "_new_index"}},
+			[]UniqueID{1000, 1001, 1002})
 		assert.NoError(t, err)
 		assert.Equal(t, true, done)
 		// Case with an empty result.
-		done, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, ""), collName, coll.GetID(), []UniqueID{})
+		done, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, ""), collName, coll.CollectionID,
+			[]*indexpb.IndexInfo{{IndexName: "_default"}, {IndexName: "_new_index"}}, []UniqueID{})
 		assert.NoError(t, err)
 		assert.Equal(t, true, done)
 		// Case where GetIndexStates failed with error.
 		_, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, returnError),
-			collName, coll.GetID(), []UniqueID{1000, 1001, 1002})
+			collName, coll.CollectionID, []*indexpb.IndexInfo{{IndexName: "_default"}, {IndexName: "_new_index"}},
+			[]UniqueID{1000, 1001, 1002})
 		assert.Error(t, err)
 		// Case where GetIndexStates failed with bad status.
 		_, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, returnUnsuccessfulStatus),
-			collName, coll.GetID(), []UniqueID{1000, 1001, 1002})
+			collName, coll.CollectionID, []*indexpb.IndexInfo{{IndexName: "_default"}, {IndexName: "_new_index"}},
+			[]UniqueID{1000, 1001, 1002})
 		assert.Error(t, err)
 		// Case where describing segment fails, which is not considered as an error.
 		_, err = core.countCompleteIndex(context.WithValue(ctx, ctxKey{}, ""),
-			collName, coll.GetID(), []UniqueID{9000, 9001, 9002})
+			collName, coll.CollectionID, []*indexpb.IndexInfo{{IndexName: "_default"}, {IndexName: "_new_index"}},
+			[]UniqueID{9000, 9001, 9002})
 		assert.NoError(t, err)
 	})
 
@@ -1224,12 +1242,12 @@ func TestRootCoord_Base(t *testing.T) {
 		assert.NoError(t, err)
 		// Check the case where the collection exists.
 		req := &internalpb.CheckSegmentIndexReadyRequest{
-			TaskID: 199,              // Some random ID.
-			ColID:  collMeta.GetID(), // The correct collection ID.
-			SegIDs: []int64{399},     // Some random ID.
+			TaskID: 199,                   // Some random ID.
+			ColID:  collMeta.CollectionID, // The correct collection ID.
+			SegIDs: []int64{399},          // Some random ID.
 		}
 		// Expect check segment index ready to timeout as we cannot describe the invalid segment correctly.
-		rsp, err := core.CheckSegmentIndexReady(context.WithValue(ctx, ctxKey{}, ""), req)
+		rsp, err := core.CheckSegmentIndexReady(context.WithValue(ctx, ctxKey{}, returnUnsuccessfulStatus), req)
 		assert.Equal(t, commonpb.ErrorCode_UnexpectedError, rsp.GetErrorCode())
 		assert.NoError(t, err)
 	})
@@ -1242,56 +1260,11 @@ func TestRootCoord_Base(t *testing.T) {
 		// Check the case where the collection exists.
 		req := &internalpb.CheckSegmentIndexReadyRequest{
 			TaskID: 199,                       // Some random ID.
-			ColID:  collMeta.GetID(),          // The correct collection ID.
+			ColID:  collMeta.CollectionID,     // The correct collection ID.
 			SegIDs: []int64{1000, 1001, 1002}, // Some random ID.
 		}
 		rsp, err := core.CheckSegmentIndexReady(context.WithValue(ctx, ctxKey{}, ""), req)
 		assert.Equal(t, commonpb.ErrorCode_Success, rsp.GetErrorCode())
-		assert.NoError(t, err)
-	})
-
-	wg.Add(1)
-	t.Run("flush segment", func(t *testing.T) {
-		defer wg.Done()
-		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
-		assert.NoError(t, err)
-		partID := coll.PartitionIDs[1]
-
-		flushMsg := datapb.SegmentFlushCompletedMsg{
-			Base: &commonpb.MsgBase{
-				MsgType: commonpb.MsgType_SegmentFlushDone,
-			},
-			Segment: &datapb.SegmentInfo{
-				ID:           segID,
-				CollectionID: coll.ID,
-				PartitionID:  partID,
-			},
-		}
-		st, err := core.SegmentFlushCompleted(ctx, &flushMsg)
-		assert.NoError(t, err)
-		assert.Equal(t, st.ErrorCode, commonpb.ErrorCode_Success)
-
-		req := &milvuspb.DescribeIndexRequest{
-			Base: &commonpb.MsgBase{
-				MsgType:   commonpb.MsgType_DescribeIndex,
-				MsgID:     210,
-				Timestamp: 210,
-				SourceID:  210,
-			},
-			DbName:         "",
-			CollectionName: collName,
-			FieldName:      "vector",
-			IndexName:      "",
-		}
-		rsp, err := core.DescribeIndex(ctx, req)
-		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, rsp.Status.ErrorCode)
-		assert.Equal(t, 1, len(rsp.IndexDescriptions))
-		assert.Equal(t, Params.CommonCfg.DefaultIndexName, rsp.IndexDescriptions[0].IndexName)
-	})
-
-	t.Run("flush segment from compaction", func(t *testing.T) {
-		coll, err := core.MetaTable.GetCollectionByName(collName, 0)
 		assert.NoError(t, err)
 	})
 
