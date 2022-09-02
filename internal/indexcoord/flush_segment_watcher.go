@@ -436,11 +436,11 @@ func (fsw *flushedSegmentWatcher) childrenProcess(task *childrenTask) {
 		}
 		segIdx := &model.SegmentIndex{
 			SegmentID:    segID,
-			CollectionID: task.segmentInfo.CollectionID,
-			PartitionID:  task.segmentInfo.PartitionID,
-			NumRows:      task.segmentInfo.NumOfRows,
-			IndexID:      task.indexInfo.IndexID,
-			CreateTime:   task.segmentInfo.StartPosition.Timestamp,
+			CollectionID: task.segmentInfo.GetCollectionID(),
+			PartitionID:  task.segmentInfo.GetPartitionID(),
+			NumRows:      task.segmentInfo.GetNumOfRows(),
+			IndexID:      task.indexInfo.GetIndexID(),
+			CreateTime:   task.segmentInfo.GetStartPosition().GetTimestamp(),
 		}
 
 		//create index task for metaTable
