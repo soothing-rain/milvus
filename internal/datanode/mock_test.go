@@ -269,6 +269,12 @@ func (ds *DataCoordFactory) UnsetIsImportingState(context.Context, *datapb.Unset
 	}, nil
 }
 
+func (ds *DataCoordFactory) MarkSegmentsDropped(context.Context, *datapb.MarkSegmentsDroppedRequest) (*commonpb.Status, error) {
+	return &commonpb.Status{
+		ErrorCode: commonpb.ErrorCode_Success,
+	}, nil
+}
+
 func (ds *DataCoordFactory) GetSegmentInfo(ctx context.Context, req *datapb.GetSegmentInfoRequest) (*datapb.GetSegmentInfoResponse, error) {
 	if ds.GetSegmentInfosError {
 		return nil, errors.New("mock error")

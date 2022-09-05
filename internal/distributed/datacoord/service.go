@@ -361,3 +361,8 @@ func (s *Server) CompleteBulkLoad(ctx context.Context, request *datapb.CompleteB
 func (s *Server) UnsetIsImportingState(ctx context.Context, request *datapb.UnsetIsImportingStateRequest) (*commonpb.Status, error) {
 	return s.dataCoord.UnsetIsImportingState(ctx, request)
 }
+
+// MarkSegmentsDropped is the distributed caller of MarkSegmentsDropped.
+func (s *Server) MarkSegmentsDropped(ctx context.Context, req *datapb.MarkSegmentsDroppedRequest) (*commonpb.Status, error) {
+	return s.dataCoord.MarkSegmentsDropped(ctx, req)
+}

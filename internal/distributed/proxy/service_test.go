@@ -466,6 +466,10 @@ func (m *MockDataCoord) UnsetIsImportingState(ctx context.Context, req *datapb.U
 	return nil, nil
 }
 
+func (m *MockDataCoord) MarkSegmentsDropped(context.Context, *datapb.MarkSegmentsDroppedRequest) (*commonpb.Status, error) {
+	return nil, nil
+}
+
 func (m *MockDataCoord) AssignSegmentID(ctx context.Context, req *datapb.AssignSegmentIDRequest) (*datapb.AssignSegmentIDResponse, error) {
 	return nil, nil
 }

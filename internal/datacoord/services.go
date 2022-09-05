@@ -1265,3 +1265,14 @@ func (s *Server) UnsetIsImportingState(ctx context.Context, req *datapb.UnsetIsI
 		ErrorCode: commonpb.ErrorCode_Success,
 	}, nil
 }
+
+func (s *Server) MarkSegmentsDropped(ctx context.Context, req *datapb.MarkSegmentsDroppedRequest) (*commonpb.Status, error) {
+	log.Info("marking segments dropped", zap.Int64s("segments", req.GetSegmentIds()))
+	for _, segID := range req.GetSegmentIds() {
+		s.meta.segments.SetState(segID, commonpb.SegmentState_Dropped)
+		s.meta.segments.SetDroppedAt(segID, uint64(time.Now().UnixNano()))
+	}
+	return &commonpb.Status{
+		ErrorCode: commonpb.ErrorCode_Success,
+	}, nil
+}

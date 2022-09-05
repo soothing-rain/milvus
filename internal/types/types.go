@@ -298,6 +298,9 @@ type DataCoord interface {
 
 	// UnsetIsImportingState unsets the `isImport` state of the given segments so that they can get compacted normally.
 	UnsetIsImportingState(ctx context.Context, req *datapb.UnsetIsImportingStateRequest) (*commonpb.Status, error)
+
+	// MarkSegmentsDropped marks the given segments as dropped.
+	MarkSegmentsDropped(ctx context.Context, req *datapb.MarkSegmentsDroppedRequest) (*commonpb.Status, error)
 }
 
 // DataCoordComponent defines the interface of DataCoord component.

@@ -931,7 +931,6 @@ func (node *DataNode) Import(ctx context.Context, req *datapb.ImportTaskRequest)
 			}, nil
 		}
 	}
-
 	ts := rep.GetTimestamp()
 
 	// get collection schema and shard number
@@ -956,6 +955,25 @@ func (node *DataNode) Import(ctx context.Context, req *datapb.ImportTaskRequest)
 		importFlushReqFunc(node, req, importResult, colInfo.GetSchema(), ts), importResult, reportFunc)
 	err = importWrapper.Import(req.GetImportTask().GetFiles(), req.GetImportTask().GetRowBased(), false)
 	if err != nil {
+		// In case of errors, mark the bulk load segments as dropped so that they can be garbage-collected.
+		if err := retry.Do(ctx, func() error {
+			status, err := node.dataCoord.MarkSegmentsDropped(ctx, &datapb.MarkSegmentsDroppedRequest{
+				Base: &commonpb.MsgBase{
+					Timestamp: ts,
+				},
+				SegmentIds: importResult.GetSegments(),
+			})
+			if err != nil {
+				return err
+			}
+			if status.ErrorCode != commonpb.ErrorCode_Success {
+				return errors.New(status.GetReason())
+			}
+			return nil
+		}, retry.Attempts(3)); err != nil {
+			log.Error("failed to mark segments as dropped. However these segments will get garbage collected later on",
+				zap.Error(err))
+		}
 		importResult.State = commonpb.ImportState_ImportFailed
 		importResult.Infos = append(importResult.Infos, &commonpb.KeyValuePair{Key: "failed_reason", Value: err.Error()})
 		reportErr := reportFunc(importResult)

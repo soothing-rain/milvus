@@ -667,6 +667,13 @@ func (m *importManager) expireOldTasksFromMem() {
 		index := 0
 		for _, t := range m.pendingTasks {
 			if taskExpired(t) {
+				// Persist the failed state.
+				t.State.StateCode = commonpb.ImportState_ImportFailed
+				if err := m.persistTaskInfo(t); err != nil {
+					log.Warn("failed to update Etcd state of a failed pending task",
+						zap.Int64("task ID", t.GetId()),
+						zap.Error(err))
+				}
 				log.Info("a pending task has expired", zap.Int64("task ID", t.GetId()))
 			} else {
 				// Only keep non-expired tasks in memory.
@@ -686,6 +693,13 @@ func (m *importManager) expireOldTasksFromMem() {
 		defer m.workingLock.Unlock()
 		for _, v := range m.workingTasks {
 			if taskExpired(v) {
+				// Persist the failed state.
+				v.State.StateCode = commonpb.ImportState_ImportFailed
+				if err := m.persistTaskInfo(v); err != nil {
+					log.Warn("failed to update Etcd state of a failed working task",
+						zap.Int64("task ID", v.GetId()),
+						zap.Error(err))
+				}
 				log.Info("a working task has expired", zap.Int64("task ID", v.GetId()))
 				// Unset `isImport` flag of the bulk load segments.
 				taskID := v.GetId()

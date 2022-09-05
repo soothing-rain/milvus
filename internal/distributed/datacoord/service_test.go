@@ -63,6 +63,7 @@ type MockDataCoord struct {
 	addSegmentResp            *commonpb.Status
 	completeBulkLoadResp      *commonpb.Status
 	unsetIsImportingStateResp *commonpb.Status
+	markSegmentsDroppedResp   *commonpb.Status
 }
 
 func (m *MockDataCoord) Init() error {
@@ -202,6 +203,10 @@ func (m *MockDataCoord) CompleteBulkLoad(context.Context, *datapb.CompleteBulkLo
 
 func (m *MockDataCoord) UnsetIsImportingState(context.Context, *datapb.UnsetIsImportingStateRequest) (*commonpb.Status, error) {
 	return m.unsetIsImportingStateResp, m.err
+}
+
+func (m *MockDataCoord) MarkSegmentsDropped(context.Context, *datapb.MarkSegmentsDroppedRequest) (*commonpb.Status, error) {
+	return m.markSegmentsDroppedResp, m.err
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -487,6 +492,17 @@ func Test_NewServer(t *testing.T) {
 			},
 		}
 		resp, err := server.UnsetIsImportingState(ctx, nil)
+		assert.Nil(t, err)
+		assert.NotNil(t, resp)
+	})
+
+	t.Run("mark segment dropped", func(t *testing.T) {
+		server.dataCoord = &MockDataCoord{
+			markSegmentsDroppedResp: &commonpb.Status{
+				ErrorCode: commonpb.ErrorCode_Success,
+			},
+		}
+		resp, err := server.MarkSegmentsDropped(ctx, nil)
 		assert.Nil(t, err)
 		assert.NotNil(t, resp)
 	})

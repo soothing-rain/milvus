@@ -61,6 +61,7 @@ service DataCoord {
   rpc SaveImportSegment(SaveImportSegmentRequest) returns(common.Status) {}
   rpc CompleteBulkLoad(CompleteBulkLoadRequest) returns(common.Status) {}
   rpc UnsetIsImportingState(UnsetIsImportingStateRequest) returns(common.Status) {}
+  rpc MarkSegmentsDropped(MarkSegmentsDroppedRequest) returns(common.Status) {}
 }
 
 service DataNode {
@@ -580,6 +581,11 @@ message CompleteBulkLoadRequest {
 message UnsetIsImportingStateRequest {
   common.MsgBase base = 1;
   repeated int64 segment_ids = 2;       // IDs of segments whose `isImport` states need to be unset.
+}
+
+message MarkSegmentsDroppedRequest {
+  common.MsgBase base = 1;
+  repeated int64 segment_ids = 2;       // IDs of segments whose states need to be set as `dropped`.
 }
 
 message SegmentReferenceLock {
