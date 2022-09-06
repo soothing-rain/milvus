@@ -36,9 +36,11 @@ type Broker interface {
 	ReleaseSegRefLock(ctx context.Context, taskID int64, segIDs []int64) error
 	Flush(ctx context.Context, cID int64, segIDs []int64) error
 	Import(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error)
+	UnsetIsImportingState(context.Context, *datapb.UnsetIsImportingStateRequest) (*commonpb.Status, error)
 
 	DropCollectionIndex(ctx context.Context, collID UniqueID) error
 	GetSegmentIndexState(ctx context.Context, collID UniqueID, indexName string, segIDs []UniqueID) ([]*indexpb.SegmentIndexState, error)
+	DescribeIndex(ctx context.Context, colID UniqueID) ([]*indexpb.IndexInfo, error)
 }
 
 type ServerBroker struct {
@@ -192,6 +194,10 @@ func (b *ServerBroker) Import(ctx context.Context, req *datapb.ImportTaskRequest
 	return b.s.dataCoord.Import(ctx, req)
 }
 
+func (b *ServerBroker) UnsetIsImportingState(ctx context.Context, req *datapb.UnsetIsImportingStateRequest) (*commonpb.Status, error) {
+	return b.s.dataCoord.UnsetIsImportingState(ctx, req)
+}
+
 func (b *ServerBroker) DropCollectionIndex(ctx context.Context, collID UniqueID) error {
 	if err := funcutil.WaitForComponentHealthy(ctx, b.s.indexCoord, "IndexCoord", 100, time.Millisecond*100); err != nil {
 		return err
@@ -223,4 +229,17 @@ func (b *ServerBroker) GetSegmentIndexState(ctx context.Context, collID UniqueID
 	}
 
 	return resp.GetStates(), nil
+}
+
+func (b *ServerBroker) DescribeIndex(ctx context.Context, colID UniqueID) ([]*indexpb.IndexInfo, error) {
+	resp, err := b.s.indexCoord.DescribeIndex(ctx, &indexpb.DescribeIndexRequest{
+		CollectionID: colID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.Status.ErrorCode != commonpb.ErrorCode_Success {
+		return nil, errors.New(resp.GetStatus().GetReason())
+	}
+	return resp.GetIndexInfos(), nil
 }

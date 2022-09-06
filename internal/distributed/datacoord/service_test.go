@@ -62,7 +62,6 @@ type MockDataCoord struct {
 	acquireSegLockResp        *commonpb.Status
 	releaseSegLockResp        *commonpb.Status
 	addSegmentResp            *commonpb.Status
-	completeBulkLoadResp      *commonpb.Status
 	unsetIsImportingStateResp *commonpb.Status
 }
 
@@ -199,10 +198,6 @@ func (m *MockDataCoord) ReleaseSegmentLock(ctx context.Context, req *datapb.Rele
 
 func (m *MockDataCoord) SaveImportSegment(ctx context.Context, req *datapb.SaveImportSegmentRequest) (*commonpb.Status, error) {
 	return m.addSegmentResp, m.err
-}
-
-func (m *MockDataCoord) CompleteBulkLoad(context.Context, *datapb.CompleteBulkLoadRequest) (*commonpb.Status, error) {
-	return m.completeBulkLoadResp, m.err
 }
 
 func (m *MockDataCoord) UnsetIsImportingState(context.Context, *datapb.UnsetIsImportingStateRequest) (*commonpb.Status, error) {
@@ -479,17 +474,6 @@ func Test_NewServer(t *testing.T) {
 			},
 		}
 		resp, err := server.SaveImportSegment(ctx, nil)
-		assert.Nil(t, err)
-		assert.NotNil(t, resp)
-	})
-
-	t.Run("complete bulk load", func(t *testing.T) {
-		server.dataCoord = &MockDataCoord{
-			completeBulkLoadResp: &commonpb.Status{
-				ErrorCode: commonpb.ErrorCode_Success,
-			},
-		}
-		resp, err := server.CompleteBulkLoad(ctx, nil)
 		assert.Nil(t, err)
 		assert.NotNil(t, resp)
 	})

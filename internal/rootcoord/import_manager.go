@@ -84,14 +84,14 @@ type importManager struct {
 	idAllocator            func(count uint32) (typeutil.UniqueID, typeutil.UniqueID, error)
 	callImportService      func(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error)
 	getCollectionName      func(collID, partitionID typeutil.UniqueID) (string, string, error)
-	callUnsetIsImportState func(taskID int64) error
+	callUnsetIsImportState func(ctx context.Context, segIDs []typeutil.UniqueID) (*commonpb.Status, error)
 }
 
 // newImportManager helper function to create a importManager
 func newImportManager(ctx context.Context, client kv.MetaKv,
 	idAlloc func(count uint32) (typeutil.UniqueID, typeutil.UniqueID, error),
 	importService func(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error),
-	unsetIsImportState func(taskID int64) error,
+	unsetIsImportState func(ctx context.Context, segIDs []typeutil.UniqueID) (*commonpb.Status, error),
 	getCollectionName func(collID, partitionID typeutil.UniqueID) (string, string, error)) *importManager {
 	mgr := &importManager{
 		ctx:                    ctx,
@@ -668,9 +668,8 @@ func (m *importManager) expireOldTasksFromMem() {
 			if taskExpired(v) {
 				log.Info("a working task has expired", zap.Int64("task ID", v.GetId()))
 				// Unset `isImport` flag of the bulk load segments.
-				taskID := v.GetId()
 				m.workingLock.Unlock()
-				m.callUnsetIsImportState(taskID)
+				m.callUnsetIsImportState(m.ctx, v.GetState().GetSegments())
 				// Re-lock.
 				m.workingLock.Lock()
 				// Remove this task from memory.
@@ -701,7 +700,7 @@ func (m *importManager) expireOldTasksFromEtcd() {
 			log.Info("an import task has passed retention period and will be removed from Etcd",
 				zap.Int64("task ID", ti.GetId()))
 			// Unset `isImport` flag of the bulk load segments.
-			m.callUnsetIsImportState(ti.GetId())
+			m.callUnsetIsImportState(m.ctx, ti.GetState().GetSegments())
 			if err = m.yieldTaskInfo(ti.GetId()); err != nil {
 				log.Error("failed to remove import task from Etcd",
 					zap.Int64("task ID", ti.GetId()),

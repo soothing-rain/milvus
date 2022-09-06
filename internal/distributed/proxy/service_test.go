@@ -266,10 +266,6 @@ func (m *MockRootCoord) GetImportFailedSegmentIDs(ctx context.Context, req *inte
 	return nil, nil
 }
 
-func (m *MockRootCoord) CheckSegmentIndexReady(context.Context, *internalpb.CheckSegmentIndexReadyRequest) (*commonpb.Status, error) {
-	return nil, nil
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockIndexCoord struct {
 	MockBase
@@ -475,10 +471,6 @@ func (m *MockDataCoord) Flush(ctx context.Context, req *datapb.FlushRequest) (*d
 }
 
 func (m *MockDataCoord) SaveImportSegment(ctx context.Context, req *datapb.SaveImportSegmentRequest) (*commonpb.Status, error) {
-	return nil, nil
-}
-
-func (m *MockDataCoord) CompleteBulkLoad(ctx context.Context, req *datapb.CompleteBulkLoadRequest) (*commonpb.Status, error) {
 	return nil, nil
 }
 
