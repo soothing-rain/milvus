@@ -567,7 +567,7 @@ func (mt *MetaTable) ListAliasesByID(collID UniqueID) []string {
 
 // GetCollectionNameByID serve for bulk load. TODO: why this didn't accept ts?
 func (mt *MetaTable) GetCollectionNameByID(collID UniqueID) (string, error) {
-	mt.ddLock.RUnlock()
+	mt.ddLock.RLock()
 	defer mt.ddLock.RUnlock()
 
 	coll, ok := mt.collID2Meta[collID]
@@ -580,7 +580,7 @@ func (mt *MetaTable) GetCollectionNameByID(collID UniqueID) (string, error) {
 
 // GetPartitionNameByID serve for bulk load.
 func (mt *MetaTable) GetPartitionNameByID(collID UniqueID, partitionID UniqueID, ts Timestamp) (string, error) {
-	mt.ddLock.RUnlock()
+	mt.ddLock.RLock()
 	defer mt.ddLock.RUnlock()
 
 	coll, ok := mt.collID2Meta[collID]
