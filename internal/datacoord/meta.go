@@ -214,6 +214,7 @@ func (m *meta) SetState(segmentID UniqueID, targetState commonpb.SegmentState) e
 	defer m.Unlock()
 	curSegInfo := m.segments.GetSegment(segmentID)
 	if curSegInfo == nil {
+		// TODO: Should return error instead.
 		return nil
 	}
 	// Persist segment updates first.
@@ -248,12 +249,14 @@ func (m *meta) UnsetIsImporting(segmentID UniqueID) error {
 	defer m.Unlock()
 	curSegInfo := m.segments.GetSegment(segmentID)
 	if curSegInfo == nil {
-		return nil
+		return fmt.Errorf("segment not found %d", segmentID)
 	}
 	// Persist segment updates first.
 	clonedSegment := curSegInfo.Clone()
 	clonedSegment.IsImporting = false
 	if isSegmentHealthy(clonedSegment) {
+		log.Info("unsetting isImport state of segment",
+			zap.Int64("segment ID", segmentID))
 		if err := m.catalog.AlterSegments(m.ctx, []*datapb.SegmentInfo{clonedSegment.SegmentInfo}); err != nil {
 			log.Error("failed to unset segment isImporting state",
 				zap.Int64("segment ID", segmentID),
@@ -925,7 +928,7 @@ func (m *meta) updateDeltalogs(origin []*datapb.FieldBinlog, removes []*datapb.F
 }
 
 // buildSegment utility function for compose datapb.SegmentInfo struct with provided info
-func buildSegment(collectionID UniqueID, partitionID UniqueID, segmentID UniqueID, channelName string) *SegmentInfo {
+func buildSegment(collectionID UniqueID, partitionID UniqueID, segmentID UniqueID, channelName string, isImporting bool) *SegmentInfo {
 	info := &datapb.SegmentInfo{
 		ID:            segmentID,
 		CollectionID:  collectionID,
@@ -933,6 +936,7 @@ func buildSegment(collectionID UniqueID, partitionID UniqueID, segmentID UniqueI
 		InsertChannel: channelName,
 		NumOfRows:     0,
 		State:         commonpb.SegmentState_Growing,
+		IsImporting:   isImporting,
 	}
 	return NewSegmentInfo(info)
 }
