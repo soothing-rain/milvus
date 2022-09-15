@@ -35,6 +35,8 @@ import (
 	"golang.org/x/exp/mmap"
 )
 
+var CheckBucketRetryAttempts uint = 20
+
 // MinioChunkManager is responsible for read and write data stored in minio.
 type MinioChunkManager struct {
 	*minio.Client
@@ -96,7 +98,7 @@ func newMinioChunkManagerWithConfig(ctx context.Context, c *config) (*MinioChunk
 		}
 		return nil
 	}
-	err = retry.Do(ctx, checkBucketFn, retry.Attempts(20))
+	err = retry.Do(ctx, checkBucketFn, retry.Attempts(CheckBucketRetryAttempts))
 	if err != nil {
 		return nil, err
 	}
