@@ -1,3 +1,19 @@
+// Licensed to the LF AI & Data foundation under one
+// or more contributor license agreements. See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership. The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package importutil
 
 import (
@@ -216,7 +232,10 @@ func Test_ParserRows(t *testing.T) {
 	err := parser.ParseRows(reader, nil)
 	assert.NotNil(t, err)
 
-	validator := NewJSONRowValidator(schema, nil)
+	validator, err := NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(5), validator.ValidateCount())
@@ -224,50 +243,74 @@ func Test_ParserRows(t *testing.T) {
 	reader = strings.NewReader(`{
 		"dummy":[]
 	}`)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{
 		"rows":
 	}`)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{
 		"rows": [}
 	}`)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{
 		"rows": {}
 	}`)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{
 		"rows": [[]]
 	}`)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`[]`)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{}`)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(``)
-	validator = NewJSONRowValidator(schema, nil)
+	validator, err = NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 }
@@ -309,7 +352,10 @@ func Test_ParserColumns(t *testing.T) {
 	err := parser.ParseColumns(reader, nil)
 	assert.NotNil(t, err)
 
-	validator := NewJSONColumnValidator(schema, nil)
+	validator, err := NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.Nil(t, err)
 	counter := validator.ValidateCount()
@@ -321,50 +367,74 @@ func Test_ParserColumns(t *testing.T) {
 		"field_int8": [10, 11, 12, 13, 14],
 		"dummy":[1, 2, 3]
 	}`)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.Nil(t, err)
 
 	reader = strings.NewReader(`{
 		"dummy":[1, 2, 3]
 	}`)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{
 		"field_bool":
 	}`)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{
 		"field_bool":{}
 	}`)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{
 		"field_bool":[}
 	}`)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`[]`)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(`{}`)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
 	reader = strings.NewReader(``)
-	validator = NewJSONColumnValidator(schema, nil)
+	validator, err = NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 }
@@ -462,8 +532,11 @@ func Test_ParserRowsStringKey(t *testing.T) {
 		]
 	}`)
 
-	validator := NewJSONRowValidator(schema, nil)
-	err := parser.ParseRows(reader, validator)
+	validator, err := NewJSONRowValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
+	err = parser.ParseRows(reader, validator)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(10), validator.ValidateCount())
 }
@@ -495,7 +568,10 @@ func Test_ParserColumnsStrKey(t *testing.T) {
 	err := parser.ParseColumns(reader, nil)
 	assert.NotNil(t, err)
 
-	validator := NewJSONColumnValidator(schema, nil)
+	validator, err := NewJSONColumnValidator(schema, nil)
+	assert.NotNil(t, validator)
+	assert.Nil(t, err)
+
 	err = parser.ParseColumns(reader, validator)
 	assert.Nil(t, err)
 	counter := validator.ValidateCount()
