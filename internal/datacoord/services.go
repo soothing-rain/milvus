@@ -629,7 +629,6 @@ func (s *Server) GetRecoveryInfo(ctx context.Context, req *datapb.GetRecoveryInf
 		log.Debug("datacoord append channelInfo in GetRecoveryInfo",
 			zap.Any("channelInfo", channelInfo),
 		)
-
 		flushedIDs.Insert(channelInfo.GetFlushedSegmentIds()...)
 	}
 
