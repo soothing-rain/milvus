@@ -185,11 +185,8 @@ func Test_JSONRowValidator(t *testing.T) {
 		"rows":[]
 	}`)
 
-	validator, err := NewJSONRowValidator(schema, nil)
-	assert.NotNil(t, validator)
-	assert.Nil(t, err)
-
-	err = parser.ParseRows(reader, validator)
+	validator := NewJSONRowValidator(schema, nil)
+	err := parser.ParseRows(reader, validator)
 	assert.NotNil(t, err)
 	assert.Equal(t, int64(0), validator.ValidateCount())
 
@@ -249,11 +246,8 @@ func Test_JSONColumnValidator(t *testing.T) {
 		"field_float_vector": []
 	}`)
 
-	validator, err := NewJSONColumnValidator(schema, nil)
-	assert.NotNil(t, validator)
-	assert.Nil(t, err)
-
-	err = parser.ParseColumns(reader, validator)
+	validator := NewJSONColumnValidator(schema, nil)
+	err := parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 	for _, count := range validator.rowCounter {
 		assert.Equal(t, int64(0), count)
@@ -273,10 +267,7 @@ func Test_JSONColumnValidator(t *testing.T) {
 		"field_float_vector": []
 	}`)
 
-	validator, err = NewJSONColumnValidator(schema, nil)
-	assert.NotNil(t, validator)
-	assert.Nil(t, err)
-
+	validator = NewJSONColumnValidator(schema, nil)
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
@@ -295,10 +286,7 @@ func Test_JSONColumnValidator(t *testing.T) {
 		"field_float_vector": [[1.1, 1.2, 1.3, 1.4]]
 	}`)
 
-	validator, err = NewJSONColumnValidator(schema, nil)
-	assert.NotNil(t, validator)
-	assert.Nil(t, err)
-
+	validator = NewJSONColumnValidator(schema, nil)
 	err = parser.ParseColumns(reader, validator)
 	assert.NotNil(t, err)
 
@@ -344,15 +332,11 @@ func Test_JSONRowConsumer(t *testing.T) {
 		return nil
 	}
 
-	consumer, err := NewJSONRowConsumer(schema, idAllocator, shardNum, 1, consumeFunc)
+	consumer := NewJSONRowConsumer(schema, idAllocator, shardNum, 1, consumeFunc)
 	assert.NotNil(t, consumer)
-	assert.Nil(t, err)
 
-	validator, err := NewJSONRowValidator(schema, consumer)
-	assert.NotNil(t, validator)
-	assert.Nil(t, err)
-
-	err = parser.ParseRows(reader, validator)
+	validator := NewJSONRowValidator(schema, consumer)
+	err := parser.ParseRows(reader, validator)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(5), validator.ValidateCount())
 
@@ -470,15 +454,11 @@ func Test_JSONRowConsumerStringKey(t *testing.T) {
 		return nil
 	}
 
-	consumer, err := NewJSONRowConsumer(schema, idAllocator, shardNum, 1, consumeFunc)
+	consumer := NewJSONRowConsumer(schema, idAllocator, shardNum, 1, consumeFunc)
 	assert.NotNil(t, consumer)
-	assert.Nil(t, err)
 
-	validator, err := NewJSONRowValidator(schema, consumer)
-	assert.NotNil(t, validator)
-	assert.Nil(t, err)
-
-	err = parser.ParseRows(reader, validator)
+	validator := NewJSONRowValidator(schema, consumer)
+	err := parser.ParseRows(reader, validator)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(10), validator.ValidateCount())
 
@@ -536,15 +516,11 @@ func Test_JSONColumnConsumer(t *testing.T) {
 		return nil
 	}
 
-	consumer, err := NewJSONColumnConsumer(schema, consumeFunc)
+	consumer := NewJSONColumnConsumer(schema, consumeFunc)
 	assert.NotNil(t, consumer)
-	assert.Nil(t, err)
 
-	validator, err := NewJSONColumnValidator(schema, consumer)
-	assert.NotNil(t, validator)
-	assert.Nil(t, err)
-
-	err = parser.ParseColumns(reader, validator)
+	validator := NewJSONColumnValidator(schema, consumer)
+	err := parser.ParseColumns(reader, validator)
 	assert.Nil(t, err)
 	for _, count := range validator.ValidateCount() {
 		assert.Equal(t, int64(5), count)

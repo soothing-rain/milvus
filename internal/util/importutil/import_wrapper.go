@@ -289,16 +289,9 @@ func (p *ImportWrapper) parseRowBasedJSON(filePath string, onlyValidate bool) er
 			p.printFieldsDataInfo(fields, "import wrapper: prepare to flush segment", filePaths)
 			return p.callFlushFunc(fields, shardID)
 		}
-		consumer, err = NewJSONRowConsumer(p.collectionSchema, p.rowIDAllocator, p.shardNum, p.segmentSize, flushFunc)
-		if err != nil {
-			return err
-		}
+		consumer = NewJSONRowConsumer(p.collectionSchema, p.rowIDAllocator, p.shardNum, p.segmentSize, flushFunc)
 	}
-	validator, err := NewJSONRowValidator(p.collectionSchema, consumer)
-	if err != nil {
-		return err
-	}
-
+	validator := NewJSONRowValidator(p.collectionSchema, consumer)
 	err = parser.ParseRows(reader, validator)
 	if err != nil {
 		return err
@@ -330,15 +323,9 @@ func (p *ImportWrapper) parseColumnBasedJSON(filePath string, onlyValidate bool,
 	parser := NewJSONParser(p.ctx, p.collectionSchema)
 	var consumer *JSONColumnConsumer
 	if !onlyValidate {
-		consumer, err = NewJSONColumnConsumer(p.collectionSchema, combineFunc)
-		if err != nil {
-			return err
-		}
+		consumer = NewJSONColumnConsumer(p.collectionSchema, combineFunc)
 	}
-	validator, err := NewJSONColumnValidator(p.collectionSchema, consumer)
-	if err != nil {
-		return err
-	}
+	validator := NewJSONColumnValidator(p.collectionSchema, consumer)
 
 	err = parser.ParseColumns(reader, validator)
 	if err != nil {

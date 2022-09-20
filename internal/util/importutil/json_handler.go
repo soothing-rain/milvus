@@ -262,7 +262,7 @@ type JSONRowValidator struct {
 	rowCounter int64                          // how many rows have been validated
 }
 
-func NewJSONRowValidator(collectionSchema *schemapb.CollectionSchema, downstream JSONRowHandler) (*JSONRowValidator, error) {
+func NewJSONRowValidator(collectionSchema *schemapb.CollectionSchema, downstream JSONRowHandler) *JSONRowValidator {
 	v := &JSONRowValidator{
 		validators: make(map[storage.FieldID]*Validator),
 		downstream: downstream,
@@ -270,10 +270,9 @@ func NewJSONRowValidator(collectionSchema *schemapb.CollectionSchema, downstream
 	}
 	err := initValidators(collectionSchema, v.validators)
 	if err != nil {
-		log.Error("JSON column validator: fail to initialize json row-based validator", zap.Error(err))
-		return nil, err
+		log.Error("fail to initialize validator", zap.Error(err))
 	}
-	return v, nil
+	return v
 }
 
 func (v *JSONRowValidator) ValidateCount() int64 {
@@ -329,7 +328,7 @@ type JSONColumnValidator struct {
 	rowCounter map[string]int64               // row count of each field
 }
 
-func NewJSONColumnValidator(schema *schemapb.CollectionSchema, downstream JSONColumnHandler) (*JSONColumnValidator, error) {
+func NewJSONColumnValidator(schema *schemapb.CollectionSchema, downstream JSONColumnHandler) *JSONColumnValidator {
 	v := &JSONColumnValidator{
 		validators: make(map[storage.FieldID]*Validator),
 		downstream: downstream,
@@ -337,10 +336,9 @@ func NewJSONColumnValidator(schema *schemapb.CollectionSchema, downstream JSONCo
 	}
 	err := initValidators(schema, v.validators)
 	if err != nil {
-		log.Error("JSON column validator: fail to initialize json column-based validator", zap.Error(err))
-		return nil, err
+		log.Error("fail to initialize validator", zap.Error(err))
 	}
-	return v, nil
+	return v
 }
 
 func (v *JSONColumnValidator) ValidateCount() map[string]int64 {
@@ -489,10 +487,10 @@ func initSegmentData(collectionSchema *schemapb.CollectionSchema) map[storage.Fi
 }
 
 func NewJSONRowConsumer(collectionSchema *schemapb.CollectionSchema, idAlloc *allocator.IDAllocator, shardNum int32, segmentSize int64,
-	flushFunc ImportFlushFunc) (*JSONRowConsumer, error) {
+	flushFunc ImportFlushFunc) *JSONRowConsumer {
 	if collectionSchema == nil {
 		log.Error("JSON row consumer: collection schema is nil")
-		return nil, errors.New("collection schema is nil")
+		return nil
 	}
 
 	v := &JSONRowConsumer{
@@ -509,16 +507,14 @@ func NewJSONRowConsumer(collectionSchema *schemapb.CollectionSchema, idAlloc *al
 
 	err := initValidators(collectionSchema, v.validators)
 	if err != nil {
-		log.Error("JSON row consumer: fail to initialize json row-based consumer", zap.Error(err))
-		return nil, errors.New("fail to initialize json row-based consumer")
+		log.Error("fail to initialize validator", zap.Error(err))
 	}
 
 	v.segmentsData = make([]map[storage.FieldID]storage.FieldData, 0, shardNum)
 	for i := 0; i < int(shardNum); i++ {
 		segmentData := initSegmentData(collectionSchema)
 		if segmentData == nil {
-			log.Error("JSON row consumer: fail to initialize in-memory segment data", zap.Int32("shardNum", shardNum))
-			return nil, errors.New("fail to initialize in-memory segment data")
+			return nil
 		}
 		v.segmentsData = append(v.segmentsData, segmentData)
 	}
@@ -533,15 +529,15 @@ func NewJSONRowConsumer(collectionSchema *schemapb.CollectionSchema, idAlloc *al
 	// primary key not found
 	if v.primaryKey == -1 {
 		log.Error("JSON row consumer: collection schema has no primary key")
-		return nil, errors.New("collection schema has no primary key")
+		return nil
 	}
 	// primary key is autoid, id generator is required
 	if v.validators[v.primaryKey].autoID && idAlloc == nil {
 		log.Error("JSON row consumer: ID allocator is nil")
-		return nil, errors.New(" ID allocator is nil")
+		return nil
 	}
 
-	return v, nil
+	return v
 }
 
 func (v *JSONRowConsumer) IDRange() []int64 {
@@ -683,10 +679,9 @@ type JSONColumnConsumer struct {
 	callFlushFunc ColumnFlushFunc // call back function to flush segment
 }
 
-func NewJSONColumnConsumer(collectionSchema *schemapb.CollectionSchema, flushFunc ColumnFlushFunc) (*JSONColumnConsumer, error) {
+func NewJSONColumnConsumer(collectionSchema *schemapb.CollectionSchema, flushFunc ColumnFlushFunc) *JSONColumnConsumer {
 	if collectionSchema == nil {
-		log.Error("JSON column consumer: collection schema is nil")
-		return nil, errors.New("collection schema is nil")
+		return nil
 	}
 
 	v := &JSONColumnConsumer{
@@ -696,14 +691,9 @@ func NewJSONColumnConsumer(collectionSchema *schemapb.CollectionSchema, flushFun
 	}
 	err := initValidators(collectionSchema, v.validators)
 	if err != nil {
-		log.Error("JSON column consumer: fail to initialize validator", zap.Error(err))
-		return nil, errors.New("fail to initialize validator")
+		log.Error("fail to initialize validator", zap.Error(err))
 	}
 	v.fieldsData = initSegmentData(collectionSchema)
-	if v.fieldsData == nil {
-		log.Error("JSON column consumer: fail to initialize in-memory segment data")
-		return nil, errors.New("fail to initialize in-memory segment data")
-	}
 
 	for i := 0; i < len(collectionSchema.Fields); i++ {
 		schema := collectionSchema.Fields[i]
@@ -713,7 +703,7 @@ func NewJSONColumnConsumer(collectionSchema *schemapb.CollectionSchema, flushFun
 		}
 	}
 
-	return v, nil
+	return v
 }
 
 func (v *JSONColumnConsumer) flush() error {
