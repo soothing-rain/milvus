@@ -310,18 +310,18 @@ func (m *importManager) flipTaskState(ctx context.Context) error {
 				log.Info("now start unsetting isImporting state of segments",
 					zap.Int64("task ID", resp.GetId()),
 					zap.Int64s("segment IDs", resp.GetSegmentIds()))
-				// Remove the `isImport` states of these segments only when the import task reaches `ImportState_ImportCompleted` state.
-				status, err := m.callUnsetIsImportingState(ctx, &datapb.UnsetIsImportingStateRequest{
-					SegmentIds: resp.GetSegmentIds(),
-				})
-				if err != nil {
-					log.Error("failed to unset importing state of all segments (could be partial failure)",
-						zap.Error(err))
-				}
-				if status.GetErrorCode() != commonpb.ErrorCode_Success {
-					log.Error("failed to unset importing state of all segments (could be partial failure)",
-						zap.Error(errors.New(status.GetReason())))
-				}
+				//// Remove the `isImport` states of these segments only when the import task reaches `ImportState_ImportCompleted` state.
+				//status, err := m.callUnsetIsImportingState(ctx, &datapb.UnsetIsImportingStateRequest{
+				//	SegmentIds: resp.GetSegmentIds(),
+				//})
+				//if err != nil {
+				//	log.Error("failed to unset importing state of all segments (could be partial failure)",
+				//		zap.Error(err))
+				//}
+				//if status.GetErrorCode() != commonpb.ErrorCode_Success {
+				//	log.Error("failed to unset importing state of all segments (could be partial failure)",
+				//		zap.Error(errors.New(status.GetReason())))
+				//}
 			}
 		}
 	}
