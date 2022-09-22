@@ -29,18 +29,19 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/milvus-io/milvus/api/commonpb"
+	"github.com/milvus-io/milvus/api/milvuspb"
+	"github.com/milvus-io/milvus/api/schemapb"
 	"github.com/milvus-io/milvus/internal/common"
 	etcdkv "github.com/milvus-io/milvus/internal/kv/etcd"
 	"github.com/milvus-io/milvus/internal/log"
 	"github.com/milvus-io/milvus/internal/mq/msgstream"
-	"github.com/milvus-io/milvus/internal/storage"
-	"github.com/milvus-io/milvus/internal/types"
-	"github.com/milvus-io/milvus/internal/util/dependency"
-
 	"github.com/milvus-io/milvus/internal/proto/datapb"
 	"github.com/milvus-io/milvus/internal/proto/internalpb"
 	"github.com/milvus-io/milvus/internal/proto/rootcoordpb"
-
+	"github.com/milvus-io/milvus/internal/storage"
+	"github.com/milvus-io/milvus/internal/types"
+	"github.com/milvus-io/milvus/internal/util/dependency"
 	"github.com/milvus-io/milvus/internal/util/etcd"
 	"github.com/milvus-io/milvus/internal/util/metricsinfo"
 	"github.com/milvus-io/milvus/internal/util/sessionutil"
@@ -790,8 +791,9 @@ func TestDataNode_AddSegment(t *testing.T) {
 			RowNum:       500,
 		})
 		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_Success, stat.GetErrorCode())
-		assert.Equal(t, "", stat.GetReason())
+		assert.Equal(t, commonpb.ErrorCode_Success, stat.GetStatus().GetErrorCode())
+		assert.Equal(t, "", stat.GetStatus().GetReason())
+		assert.NotEqual(t, nil, stat.GetChannelPos())
 
 		getFlowGraphServiceAttempts = 3
 		stat, err = node.AddImportSegment(context.WithValue(ctx, ctxKey{}, ""), &datapb.AddImportSegmentRequest{
@@ -802,7 +804,7 @@ func TestDataNode_AddSegment(t *testing.T) {
 			RowNum:       500,
 		})
 		assert.NoError(t, err)
-		assert.Equal(t, commonpb.ErrorCode_UnexpectedError, stat.GetErrorCode())
+		assert.Equal(t, commonpb.ErrorCode_UnexpectedError, stat.GetStatus().GetErrorCode())
 	})
 }
 

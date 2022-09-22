@@ -476,7 +476,7 @@ func (t *compactionTrigger) getCandidateSegments(channel string, partitionID Uni
 			s.GetInsertChannel() != channel ||
 			s.GetPartitionID() != partitionID ||
 			s.isCompacting ||
-			s.isImporting {
+			s.GetIsImporting() {
 			continue
 		}
 		res = append(res, s)
