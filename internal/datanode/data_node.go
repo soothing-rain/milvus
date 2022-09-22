@@ -1036,7 +1036,7 @@ func (node *DataNode) AddImportSegment(ctx context.Context, req *datapb.AddImpor
 		}, nil
 	}
 	// Get the current dml channel position ID, that will be used in segments start positions and end positions.
-	posID, err := ds.getChannelLatestMsgID(context.Background(), req.GetChannelName())
+	posID, err := ds.getDmlChannelPositionByBroadcast(context.Background(), req.GetChannelName(), req.GetBase().GetTimestamp())
 	if err != nil {
 		return &datapb.AddImportSegmentResponse{
 			Status: &commonpb.Status{

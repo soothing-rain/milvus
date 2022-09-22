@@ -28,6 +28,7 @@ import (
 	"github.com/milvus-io/milvus/internal/metrics"
 	"github.com/milvus-io/milvus/internal/mq/msgstream"
 	"github.com/milvus-io/milvus/internal/proto/datapb"
+	"github.com/milvus-io/milvus/internal/proto/internalpb"
 	"github.com/milvus-io/milvus/internal/storage"
 	"github.com/milvus-io/milvus/internal/types"
 	"github.com/milvus-io/milvus/internal/util/concurrency"
@@ -390,7 +391,28 @@ func (dsService *dataSyncService) getSegmentInfos(segmentIDs []int64) ([]*datapb
 	return infoResp.Infos, nil
 }
 
-func (dsService *dataSyncService) getChannelLatestMsgID(ctx context.Context, channelName string) ([]byte, error) {
+// TODO(@wayblink): Use GetLatestMsgID rather than by broadcasting?
+func (dsService *dataSyncService) getDmlChannelPositionByBroadcast(ctx context.Context, channelName string, ts uint64) ([]byte, error) {
+	msgPack := msgstream.MsgPack{}
+	baseMsg := msgstream.BaseMsg{
+		Ctx:            ctx,
+		BeginTimestamp: ts,
+		EndTimestamp:   ts,
+		HashValues:     []uint32{0},
+	}
+	msg := &msgstream.InsertMsg{
+		BaseMsg: baseMsg,
+		InsertRequest: internalpb.InsertRequest{
+			Base: &commonpb.MsgBase{
+				MsgType:   commonpb.MsgType_TimeTick,
+				MsgID:     0,
+				Timestamp: ts,
+				SourceID:  Params.DataNodeCfg.GetNodeID(),
+			},
+		},
+	}
+	msgPack.Msgs = append(msgPack.Msgs, msg)
+
 	pChannelName := funcutil.ToPhysicalChannel(channelName)
 	log.Info("ddNode convert vChannel to pChannel",
 		zap.String("vChannelName", channelName),
@@ -398,14 +420,27 @@ func (dsService *dataSyncService) getChannelLatestMsgID(ctx context.Context, cha
 	)
 
 	dmlStream, err := dsService.msFactory.NewMsgStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	dmlStream.SetRepackFunc(msgstream.DefaultRepackFunc)
+	dmlStream.AsProducer([]string{pChannelName})
+	dmlStream.Start()
 	defer dmlStream.Close()
+
+	result := make(map[string][]byte)
+
+	ids, err := dmlStream.BroadcastMark(&msgPack)
 	if err != nil {
+		log.Error("BroadcastMark failed", zap.Error(err), zap.String("channelName", channelName))
 		return nil, err
 	}
-	dmlStream.AsConsumer([]string{pChannelName}, channelName)
-	id, err := dmlStream.GetLatestMsgID(pChannelName)
-	if err != nil {
-		return nil, err
+	for cn, idList := range ids {
+		// idList should have length 1, just flat by iteration
+		for _, id := range idList {
+			result[cn] = id.Serialize()
+		}
 	}
-	return id.Serialize(), nil
+
+	return result[pChannelName], nil
 }
