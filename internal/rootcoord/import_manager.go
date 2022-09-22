@@ -584,6 +584,12 @@ func (m *importManager) updateTaskState(ir *rootcoordpb.ImportResult) (*datapb.I
 
 // setImportTaskState sets the task state of an import task. Changes to the import task state will be persisted.
 func (m *importManager) setImportTaskState(taskID int64, targetState commonpb.ImportState) error {
+	return m.setImportTaskStateAndReason(taskID, targetState, "")
+}
+
+// setImportTaskStateAndReason sets the task state and error message of an import task. Changes to the import task state
+// will be persisted.
+func (m *importManager) setImportTaskStateAndReason(taskID int64, targetState commonpb.ImportState, errReason string) error {
 	log.Info("trying to set the import state of an import task",
 		zap.Int64("task ID", taskID),
 		zap.Any("target state", targetState))
@@ -595,6 +601,9 @@ func (m *importManager) setImportTaskState(taskID int64, targetState commonpb.Im
 			// Meta persist should be done before memory objs change.
 			toPersistImportTaskInfo := cloneImportTaskInfo(t)
 			toPersistImportTaskInfo.State.StateCode = targetState
+			if errReason != "" {
+				toPersistImportTaskInfo.State.ErrorMessage = errReason
+			}
 			// Update task in task store.
 			if err := m.persistTaskInfo(toPersistImportTaskInfo); err != nil {
 				return err
@@ -773,6 +782,7 @@ func (m *importManager) loadFromTaskStore(load2Mem bool) ([]*datapb.ImportTaskIn
 					ti.GetState().GetStateCode() != commonpb.ImportState_ImportFailedAndCleaned &&
 					ti.GetState().GetStateCode() != commonpb.ImportState_ImportCompleted {
 					ti.State.StateCode = commonpb.ImportState_ImportFailed
+					ti.State.ErrorMessage = "task marked failed as service restarted"
 					if err := m.persistTaskInfo(ti); err != nil {
 						log.Error("failed to mark an old task as expired",
 							zap.Int64("task ID", ti.GetId()),
@@ -834,7 +844,8 @@ func (m *importManager) expireOldTasksFromMem() {
 			if taskExpired(t) {
 				taskID := t.GetId()
 				m.pendingLock.Unlock()
-				if err := m.setImportTaskState(taskID, commonpb.ImportState_ImportFailed); err != nil {
+				if err := m.setImportTaskStateAndReason(taskID, commonpb.ImportState_ImportFailed,
+					"the import task has timed out"); err != nil {
 					log.Error("failed to set import task state",
 						zap.Int64("task ID", taskID),
 						zap.Any("target state", commonpb.ImportState_ImportFailed))
@@ -867,7 +878,8 @@ func (m *importManager) expireOldTasksFromMem() {
 				log.Info("a working task has expired", zap.Int64("task ID", v.GetId()))
 				taskID := v.GetId()
 				m.workingLock.Unlock()
-				if err := m.setImportTaskState(taskID, commonpb.ImportState_ImportFailed); err != nil {
+				if err := m.setImportTaskStateAndReason(taskID, commonpb.ImportState_ImportFailed,
+					"the import task has timed out"); err != nil {
 					log.Error("failed to set import task state",
 						zap.Int64("task ID", taskID),
 						zap.Any("target state", commonpb.ImportState_ImportFailed))
