@@ -414,11 +414,14 @@ func (c *ChannelManager) unsubAttempt(ncInfo *NodeChannelInfo) {
 
 // Watch tries to add the channel to cluster. Watch is a no op if the channel already exists.
 func (c *ChannelManager) Watch(ch *channel) error {
+	log.Info("### cm lock attempt")
 	c.mu.Lock()
+	log.Info("### cm lock acquired")
 	defer c.mu.Unlock()
 
 	updates := c.assignPolicy(c.store, []*channel{ch})
 	if len(updates) == 0 {
+		log.Info("no updates required")
 		return nil
 	}
 	log.Info("try to update channel watch info with ToWatch state",
