@@ -474,7 +474,7 @@ func TestClearGlobalFlushingCache(t *testing.T) {
 	assert.True(t, cache.checkIfCached(4))
 }
 
-func TestGetChannelLatestMsgID(t *testing.T) {
+func TestGetDmlChannelPositionByBroadcast(t *testing.T) {
 	delay := time.Now().Add(ctxTimeInMillisecond * time.Millisecond)
 	ctx, cancel := context.WithDeadline(context.Background(), delay)
 	defer cancel()
@@ -494,7 +494,7 @@ func TestGetChannelLatestMsgID(t *testing.T) {
 	var insertMsgStream = insertStream
 	insertMsgStream.Start()
 
-	id, err := dsService.getChannelLatestMsgID(ctx, dmlChannelName)
+	id, err := dsService.getDmlChannelPositionByBroadcast(ctx, dmlChannelName, 0)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 }
