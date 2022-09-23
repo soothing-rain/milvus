@@ -121,16 +121,17 @@ func (s *Server) AssignSegmentID(ctx context.Context, req *datapb.AssignSegmentI
 
 		// Load the collection info from Root Coordinator, if it is not found in server meta.
 		if s.meta.GetCollection(r.GetCollectionID()) == nil {
+			log.Info("load collection from RC")
 			err := s.loadCollectionFromRootCoord(ctx, r.GetCollectionID())
 			if err != nil {
 				log.Warn("failed to load collection in alloc segment", zap.Any("request", r), zap.Error(err))
 				continue
 			}
 		}
-
+		log.Info("start watching")
 		// Add the channel to cluster for watching.
 		s.cluster.Watch(r.ChannelName, r.CollectionID)
-
+		log.Info("start alloc-ing segment")
 		segmentAllocations := make([]*Allocation, 0)
 		if r.GetIsImport() {
 			// Have segment manager allocate and return the segment allocation info.
