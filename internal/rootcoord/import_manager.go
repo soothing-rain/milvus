@@ -340,6 +340,13 @@ func (m *importManager) checkIndexingDone(ctx context.Context, collID UniqueID, 
 			zap.Error(err))
 		return false, err
 	}
+	if descIdxResp.GetStatus().GetErrorCode() != commonpb.ErrorCode_Success &&
+		descIdxResp.GetStatus().GetErrorCode() != commonpb.ErrorCode_IndexNotExist {
+		log.Error("failed to describe index",
+			zap.Int64("collection ID", collID),
+			zap.String("reason", descIdxResp.GetStatus().GetReason()))
+		return false, errors.New(descIdxResp.GetStatus().GetReason())
+	}
 	log.Info("index info retrieved for collection",
 		zap.Int64("collection ID", collID),
 		zap.Any("index info", descIdxResp.GetIndexInfos()))
@@ -532,9 +539,9 @@ func (m *importManager) importJob(ctx context.Context, req *milvuspb.ImportReque
 	return resp
 }
 
-// updateTaskState updates the task's state in in-memory working tasks list and in task store, given ImportResult
+// updateTaskInfo updates the task's state in in-memory working tasks list and in task store, given ImportResult
 // result. It returns the ImportTaskInfo of the given task.
-func (m *importManager) updateTaskState(ir *rootcoordpb.ImportResult) (*datapb.ImportTaskInfo, error) {
+func (m *importManager) updateTaskInfo(ir *rootcoordpb.ImportResult) (*datapb.ImportTaskInfo, error) {
 	if ir == nil {
 		return nil, errors.New("import result is nil")
 	}
@@ -548,7 +555,8 @@ func (m *importManager) updateTaskState(ir *rootcoordpb.ImportResult) (*datapb.I
 	var toPersistImportTaskInfo *datapb.ImportTaskInfo
 	if v, ok = m.workingTasks[ir.GetTaskId()]; ok {
 		// If the task has already been marked failed. Prevent further state updating and return an error.
-		if v.GetState().GetStateCode() == commonpb.ImportState_ImportFailed {
+		if v.GetState().GetStateCode() == commonpb.ImportState_ImportFailed ||
+			v.GetState().GetStateCode() == commonpb.ImportState_ImportFailedAndCleaned {
 			log.Warn("trying to update an already failed task which will end up being a no-op")
 			return nil, errors.New("trying to update an already failed task " + strconv.FormatInt(ir.GetTaskId(), 10))
 		}

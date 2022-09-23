@@ -785,7 +785,7 @@ type mockBroker struct {
 	FlushFunc             func(ctx context.Context, cID int64, segIDs []int64) error
 	ImportFunc            func(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error)
 
-	DropCollectionIndexFunc func(ctx context.Context, collID UniqueID, partIDs []UniqueID) error
+	DropCollectionIndexFunc  func(ctx context.Context, collID UniqueID, partIDs []UniqueID) error
 	DescribeIndexFunc        func(ctx context.Context, colID UniqueID) (*indexpb.DescribeIndexResponse, error)
 	GetSegmentIndexStateFunc func(ctx context.Context, collID UniqueID, indexName string, segIDs []UniqueID) ([]*indexpb.SegmentIndexState, error)
 }

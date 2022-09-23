@@ -254,7 +254,6 @@ func Test_garbageCollector_scan(t *testing.T) {
 			checkInterval:    time.Minute * 30,
 			missingTolerance: 0,
 			dropTolerance:    0,
-			rootPath:         rootPath,
 		})
 		gc.start()
 		gc.scan()

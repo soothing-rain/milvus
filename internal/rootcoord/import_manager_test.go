@@ -29,6 +29,7 @@ import (
 	"github.com/milvus-io/milvus/api/milvuspb"
 	"github.com/milvus-io/milvus/internal/kv"
 	"github.com/milvus-io/milvus/internal/proto/datapb"
+	"github.com/milvus-io/milvus/internal/proto/indexpb"
 	"github.com/milvus-io/milvus/internal/proto/rootcoordpb"
 	"github.com/milvus-io/milvus/internal/util/typeutil"
 	"github.com/stretchr/testify/assert"
@@ -325,6 +326,162 @@ func TestImportManager_TestEtcdCleanUp(t *testing.T) {
 	mgr.sendOutTasksLoop(&wgLoop)
 }
 
+func TestImportManager_TestFlipTaskStateLoop(t *testing.T) {
+	var countLock sync.RWMutex
+	var globalCount = typeutil.UniqueID(0)
+
+	var idAlloc = func(count uint32) (typeutil.UniqueID, typeutil.UniqueID, error) {
+		countLock.Lock()
+		defer countLock.Unlock()
+		globalCount++
+		return globalCount, 0, nil
+	}
+	Params.RootCoordCfg.ImportTaskSubPath = "test_import_task"
+	Params.RootCoordCfg.ImportTaskExpiration = 50
+	Params.RootCoordCfg.ImportTaskRetention = 200
+	checkPendingTasksInterval = 100
+	cleanUpLoopInterval = 100
+	mockKv := &kv.MockMetaKV{}
+	mockKv.InMemKv = sync.Map{}
+	ti1 := &datapb.ImportTaskInfo{
+		Id: 100,
+		State: &datapb.ImportTaskState{
+			StateCode: commonpb.ImportState_ImportPending,
+		},
+		CreateTs: time.Now().Unix() - 100,
+	}
+	ti2 := &datapb.ImportTaskInfo{
+		Id: 200,
+		State: &datapb.ImportTaskState{
+			StateCode: commonpb.ImportState_ImportPersisted,
+			Segments:  []int64{201, 202, 203},
+		},
+		CreateTs: time.Now().Unix() - 100,
+	}
+	taskInfo1, err := proto.Marshal(ti1)
+	assert.NoError(t, err)
+	taskInfo2, err := proto.Marshal(ti2)
+	assert.NoError(t, err)
+	mockKv.Save(BuildImportTaskKey(1), "value")
+	mockKv.Save(BuildImportTaskKey(100), string(taskInfo1))
+	mockKv.Save(BuildImportTaskKey(200), string(taskInfo2))
+
+	mockCallImportServiceErr := false
+	callImportServiceFn := func(ctx context.Context, req *datapb.ImportTaskRequest) (*datapb.ImportTaskResponse, error) {
+		if mockCallImportServiceErr {
+			return &datapb.ImportTaskResponse{
+				Status: &commonpb.Status{
+					ErrorCode: commonpb.ErrorCode_Success,
+				},
+			}, errors.New("mock err")
+		}
+		return &datapb.ImportTaskResponse{
+			Status: &commonpb.Status{
+				ErrorCode: commonpb.ErrorCode_Success,
+			},
+		}, nil
+	}
+	callMarkSegmentsDropped := func(ctx context.Context, segIDs []typeutil.UniqueID) (*commonpb.Status, error) {
+		return &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_Success,
+		}, nil
+	}
+	callDescribeIndex := func(ctx context.Context, colID UniqueID) (*indexpb.DescribeIndexResponse, error) {
+		return &indexpb.DescribeIndexResponse{
+			Status: &commonpb.Status{
+				ErrorCode: commonpb.ErrorCode_Success,
+			},
+			IndexInfos: []*indexpb.IndexInfo{
+				{},
+			},
+		}, nil
+	}
+	callGetSegmentIndexState := func(ctx context.Context, collID UniqueID, indexName string,
+		segIDs []UniqueID) ([]*indexpb.SegmentIndexState, error) {
+		return []*indexpb.SegmentIndexState{
+			{
+				SegmentID: 200,
+				State:     commonpb.IndexState_Finished,
+			},
+			{
+				SegmentID: 201,
+				State:     commonpb.IndexState_Finished,
+			},
+			{
+				SegmentID: 202,
+				State:     commonpb.IndexState_Finished,
+			},
+		}, nil
+	}
+	callUnsetIsImportingState := func(context.Context, *datapb.UnsetIsImportingStateRequest) (*commonpb.Status, error) {
+		return &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_Success,
+		}, nil
+	}
+
+	flipTaskStateInterval = 50
+	var wg sync.WaitGroup
+	wg.Add(1)
+	t.Run("normal case", func(t *testing.T) {
+		defer wg.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		mgr := newImportManager(ctx, mockKv, idAlloc, callImportServiceFn, callMarkSegmentsDropped,
+			nil, callDescribeIndex, callGetSegmentIndexState, callUnsetIsImportingState)
+		assert.NotNil(t, mgr)
+		var wgLoop sync.WaitGroup
+		wgLoop.Add(1)
+		mgr.flipTaskStateLoop(&wgLoop)
+		wgLoop.Wait()
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	wg.Add(1)
+	t.Run("describe index fail", func(t *testing.T) {
+		defer wg.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		callDescribeIndex = func(ctx context.Context, colID UniqueID) (*indexpb.DescribeIndexResponse, error) {
+			return &indexpb.DescribeIndexResponse{
+				Status: &commonpb.Status{
+					ErrorCode: commonpb.ErrorCode_UnexpectedError,
+				},
+			}, nil
+		}
+		mgr := newImportManager(ctx, mockKv, idAlloc, callImportServiceFn, callMarkSegmentsDropped,
+			nil, callDescribeIndex, callGetSegmentIndexState, callUnsetIsImportingState)
+		assert.NotNil(t, mgr)
+		var wgLoop sync.WaitGroup
+		wgLoop.Add(1)
+		mgr.flipTaskStateLoop(&wgLoop)
+		wgLoop.Wait()
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	wg.Add(1)
+	t.Run("describe index with index not exist", func(t *testing.T) {
+		defer wg.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		callDescribeIndex = func(ctx context.Context, colID UniqueID) (*indexpb.DescribeIndexResponse, error) {
+			return &indexpb.DescribeIndexResponse{
+				Status: &commonpb.Status{
+					ErrorCode: commonpb.ErrorCode_IndexNotExist,
+				},
+			}, nil
+		}
+		mgr := newImportManager(ctx, mockKv, idAlloc, callImportServiceFn, callMarkSegmentsDropped,
+			nil, callDescribeIndex, callGetSegmentIndexState, callUnsetIsImportingState)
+		assert.NotNil(t, mgr)
+		var wgLoop sync.WaitGroup
+		wgLoop.Add(1)
+		mgr.flipTaskStateLoop(&wgLoop)
+		wgLoop.Wait()
+		time.Sleep(100 * time.Millisecond)
+	})
+	wg.Wait()
+}
+
 func TestImportManager_ImportJob(t *testing.T) {
 	var countLock sync.RWMutex
 	var globalCount = typeutil.UniqueID(0)
@@ -561,13 +718,13 @@ func TestImportManager_TaskState(t *testing.T) {
 	mgr := newImportManager(context.TODO(), mockKv, idAlloc, fn, callMarkSegmentsDropped, nil, nil, nil, nil)
 	mgr.importJob(context.TODO(), rowReq, colID, 0)
 
-	state := &rootcoordpb.ImportResult{
+	info := &rootcoordpb.ImportResult{
 		TaskId: 10000,
 	}
-	_, err := mgr.updateTaskState(state)
+	_, err := mgr.updateTaskInfo(info)
 	assert.NotNil(t, err)
 
-	state = &rootcoordpb.ImportResult{
+	info = &rootcoordpb.ImportResult{
 		TaskId:   2,
 		RowCount: 1000,
 		State:    commonpb.ImportState_ImportPersisted,
@@ -582,10 +739,9 @@ func TestImportManager_TaskState(t *testing.T) {
 			},
 		},
 	}
-	ti, err := mgr.updateTaskState(state)
+	ti, err := mgr.updateTaskInfo(info)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), ti.GetId())
-	assert.Equal(t, int64(100), ti.GetCollectionId())
 	assert.Equal(t, int64(100), ti.GetCollectionId())
 	assert.Equal(t, int64(0), ti.GetPartitionId())
 	assert.Equal(t, true, ti.GetRowBased())
@@ -603,6 +759,29 @@ func TestImportManager_TaskState(t *testing.T) {
 	resp = mgr.getTaskState(1)
 	assert.Equal(t, commonpb.ErrorCode_Success, resp.Status.ErrorCode)
 	assert.Equal(t, commonpb.ImportState_ImportStarted, resp.State)
+
+	info = &rootcoordpb.ImportResult{
+		TaskId:   1,
+		RowCount: 1000,
+		State:    commonpb.ImportState_ImportFailed,
+		Infos: []*commonpb.KeyValuePair{
+			{
+				Key:   "key1",
+				Value: "value1",
+			},
+			{
+				Key:   "failed_reason",
+				Value: "some_reason",
+			},
+		},
+	}
+	newTaskInfo, err := mgr.updateTaskInfo(info)
+	assert.NoError(t, err)
+	assert.Equal(t, commonpb.ImportState_ImportFailed, newTaskInfo.GetState().GetStateCode())
+
+	newTaskInfo, err = mgr.updateTaskInfo(info)
+	assert.Error(t, err)
+	assert.Nil(t, newTaskInfo)
 }
 
 func TestImportManager_AllocFail(t *testing.T) {

@@ -808,7 +808,7 @@ func Test_FileValidation(t *testing.T) {
 func Test_ReportImportFailRowBased(t *testing.T) {
 	f := dependency.NewDefaultFactory(true)
 	ctx := context.Background()
-	cm, err := f.NewVectorStorageChunkManager(ctx)
+	cm, err := f.NewPersistentStorageChunkManager(ctx)
 	assert.NoError(t, err)
 
 	idAllocator := newIDAllocator(ctx, t)
@@ -874,7 +874,7 @@ func Test_ReportImportFailRowBased(t *testing.T) {
 func Test_ReportImportFailColumnBased_json(t *testing.T) {
 	f := dependency.NewDefaultFactory(true)
 	ctx := context.Background()
-	cm, err := f.NewVectorStorageChunkManager(ctx)
+	cm, err := f.NewPersistentStorageChunkManager(ctx)
 	assert.NoError(t, err)
 	defer cm.RemoveWithPrefix("")
 
@@ -955,7 +955,7 @@ func Test_ReportImportFailColumnBased_json(t *testing.T) {
 func Test_ReportImportFailColumnBased_numpy(t *testing.T) {
 	f := dependency.NewDefaultFactory(true)
 	ctx := context.Background()
-	cm, err := f.NewVectorStorageChunkManager(ctx)
+	cm, err := f.NewPersistentStorageChunkManager(ctx)
 	assert.NoError(t, err)
 	defer cm.RemoveWithPrefix("")
 
