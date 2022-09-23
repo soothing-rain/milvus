@@ -1,3 +1,19 @@
+// Licensed to the LF AI & Data foundation under one
+// or more contributor license agreements. See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership. The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package importutil
 
 import (
@@ -29,7 +45,11 @@ const (
 )
 
 type MockChunkManager struct {
-	size int64
+	size       int64
+	readBuf    []byte
+	readErr    error
+	listResult map[string][]string
+	listErr    error
 }
 
 func (mc *MockChunkManager) RootPath() string {
@@ -57,7 +77,7 @@ func (mc *MockChunkManager) Exist(filePath string) (bool, error) {
 }
 
 func (mc *MockChunkManager) Read(filePath string) ([]byte, error) {
-	return nil, nil
+	return mc.readBuf, mc.readErr
 }
 
 func (mc *MockChunkManager) MultiRead(filePaths []string) ([][]byte, error) {
@@ -65,6 +85,15 @@ func (mc *MockChunkManager) MultiRead(filePaths []string) ([][]byte, error) {
 }
 
 func (mc *MockChunkManager) ListWithPrefix(prefix string, recursive bool) ([]string, []time.Time, error) {
+	if mc.listErr != nil {
+		return nil, nil, mc.listErr
+	}
+
+	result, ok := mc.listResult[prefix]
+	if ok {
+		return result, nil, nil
+	}
+
 	return nil, nil, nil
 }
 
