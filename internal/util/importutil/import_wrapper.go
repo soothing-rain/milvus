@@ -1,9 +1,26 @@
+// Licensed to the LF AI & Data foundation under one
+// or more contributor license agreements. See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership. The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package importutil
 
 import (
 	"bufio"
 	"context"
 	"errors"
+	"math"
 	"path"
 	"runtime/debug"
 	"strconv"
@@ -27,7 +44,21 @@ import (
 const (
 	JSONFileExt  = ".json"
 	NumpyFileExt = ".npy"
-	MaxFileSize  = 1 * 1024 * 1024 * 1024 // maximum size of each file
+
+	// this limitation is to avoid this OOM risk:
+	// for column-based file, we read all its data into memory, if user input a large file, the read() method may
+	// cost extra memory and lear to OOM.
+	MaxFileSize = 1 * 1024 * 1024 * 1024 // 1GB
+
+	// this limitation is to avoid this OOM risk:
+	// simetimes system segment max size is a large number, a single segment fields data might cause OOM.
+	// flush the segment when its data reach this limitation, let the compaction to compact it later.
+	MaxSegmentSizeInMemory = 512 * 1024 * 1024 // 512MB
+
+	// this limitation is to avoid this OOM risk:
+	// if the shard number is a large number, although single segment size is small, but there are lot of in-memory segments,
+	// the total memory size might cause OOM.
+	MaxTotalSizeInMemory = 2 * 1024 * 1024 * 1024 // 2GB
 )
 
 type ImportWrapper struct {
@@ -156,6 +187,14 @@ func (p *ImportWrapper) fileValidation(filePaths []string, rowBased bool) error 
 // filePath and rowBased are from ImportTask
 // if onlyValidate is true, this process only do validation, no data generated, callFlushFunc will not be called
 func (p *ImportWrapper) Import(filePaths []string, rowBased bool, onlyValidate bool) error {
+	log.Info("ImportWrapper: filePaths", zap.Any("filePaths", filePaths))
+	// data restore function to import milvus native binlog files(for backup/restore tools)
+	// the backup/restore tool provide two paths for a collection, the first path is binlog path, the second is deltalog path
+	if p.isBinlogImport(filePaths) {
+		return p.doBinlogImport(filePaths, math.MaxUint64)
+	}
+
+	// normal logic for import general data files
 	err := p.fileValidation(filePaths, rowBased)
 	if err != nil {
 		log.Error("import error: " + err.Error())
@@ -254,7 +293,12 @@ func (p *ImportWrapper) Import(filePaths []string, rowBased bool, onlyValidate b
 		}
 	}
 
+	return p.reportPersisted()
+}
+
+func (p *ImportWrapper) reportPersisted() error {
 	debug.FreeOSMemory()
+
 	// report file process state
 	p.importResult.State = commonpb.ImportState_ImportPersisted
 	// persist state task is valuable, retry more times in case fail this task only because of network error
@@ -262,10 +306,53 @@ func (p *ImportWrapper) Import(filePaths []string, rowBased bool, onlyValidate b
 		return p.reportFunc(p.importResult)
 	}, retry.Attempts(10))
 	if reportErr != nil {
-		log.Warn("fail to report import state to root coord", zap.Error(err))
+		log.Warn("fail to report import state to root coord", zap.Error(reportErr))
 		return reportErr
 	}
 	return nil
+}
+
+// For internal usage by the restore tool: https://github.com/zilliztech/milvus-backup
+// This tool exports data from a milvus service, and call bulkload interface to import native data into another milvus service.
+// This tool provides two paths: one is data log path of a partition,the other is delta log path of this partition.
+// This method checks the filePaths, if the file paths is exist and not a file, we say it is native import.
+func (p *ImportWrapper) isBinlogImport(filePaths []string) bool {
+	// must contains the insert log path, and the delta log path is optional
+	if len(filePaths) != 1 && len(filePaths) != 2 {
+		log.Info("import wrapper: paths count is not 1 or 2", zap.Int("len", len(filePaths)))
+		return false
+	}
+
+	for i := 0; i < len(filePaths); i++ {
+		filePath := filePaths[i]
+		_, fileType := getFileNameAndExt(filePath)
+		// contains file extension, is not a path
+		if len(fileType) != 0 {
+			log.Info("import wrapper: not a path", zap.String("filePath", filePath), zap.String("fileType", fileType))
+			return false
+		}
+	}
+
+	log.Info("do binlog import")
+	return true
+}
+
+func (p *ImportWrapper) doBinlogImport(filePaths []string, tsEndPoint uint64) error {
+	flushFunc := func(fields map[storage.FieldID]storage.FieldData, shardID int) error {
+		p.printFieldsDataInfo(fields, "import wrapper: prepare to flush binlog data", filePaths)
+		return p.callFlushFunc(fields, shardID)
+	}
+	parser, err := NewBinlogParser(p.collectionSchema, p.shardNum, p.segmentSize, p.chunkManager, flushFunc, tsEndPoint)
+	if err != nil {
+		return err
+	}
+
+	err = parser.Parse(filePaths)
+	if err != nil {
+		return err
+	}
+
+	return p.reportPersisted()
 }
 
 func (p *ImportWrapper) parseRowBasedJSON(filePath string, onlyValidate bool) error {
