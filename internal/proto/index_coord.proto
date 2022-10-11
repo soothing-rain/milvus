@@ -9,7 +9,7 @@ import "internal.proto";
 import "milvus.proto";
 
 service IndexCoord {
-  rpc GetComponentStates(internal.GetComponentStatesRequest) returns (internal.ComponentStates) {}
+  rpc GetComponentStates(milvus.GetComponentStatesRequest) returns (milvus.ComponentStates) {}
   rpc GetStatisticsChannel(internal.GetStatisticsChannelRequest) returns(milvus.StringResponse){}
   rpc CreateIndex(CreateIndexRequest) returns (common.Status){}
   // Deprecated: use DescribeIndex instead
@@ -27,7 +27,7 @@ service IndexCoord {
 }
 
 service IndexNode {
-  rpc GetComponentStates(internal.GetComponentStatesRequest) returns (internal.ComponentStates) {}
+  rpc GetComponentStates(milvus.GetComponentStatesRequest) returns (milvus.ComponentStates) {}
   rpc GetStatisticsChannel(internal.GetStatisticsChannelRequest) returns(milvus.StringResponse){}
   rpc CreateJob(CreateJobRequest) returns (common.Status) {}
   rpc QueryJobs(QueryJobsRequest) returns (QueryJobsResponse) {}
@@ -52,6 +52,8 @@ message IndexInfo {
   // index state
   common.IndexState state = 9;
   string index_state_fail_reason = 10;
+  bool is_auto_index = 11;
+  repeated common.KeyValuePair user_index_params = 12;
 }
 
 message FieldIndex {
@@ -124,6 +126,8 @@ message CreateIndexRequest {
   repeated common.KeyValuePair type_params = 4;
   repeated common.KeyValuePair index_params = 5;
   uint64 timestamp = 6;
+  bool  is_auto_index = 7;
+  repeated common.KeyValuePair user_index_params = 8;
 }
 
 message GetIndexInfoRequest {

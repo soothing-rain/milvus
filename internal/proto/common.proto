@@ -60,6 +60,7 @@ enum ErrorCode {
     SegmentNotFound = 47;
     ForceDeny = 48;
     RateLimit = 49;
+    NodeIDNotMatch = 50;
 
     // Service availability.
     // NA: Not Available.
@@ -145,6 +146,7 @@ enum MsgType {
     CreateAlias = 108;
     DropAlias = 109;
     AlterAlias = 110;
+    AlterCollection = 111;
 
 
     /* DEFINITION REQUESTS: PARTITION */
@@ -240,6 +242,7 @@ message MsgBase {
     int64  msgID = 2;
     uint64 timestamp = 3;
     int64 sourceID = 4;
+    int64 targetID = 5;
 }
 
 enum DslType {
@@ -325,4 +328,11 @@ message PrivilegeExt {
 
 extend google.protobuf.MessageOptions {
     PrivilegeExt privilege_ext_obj = 1001;
+}
+
+enum StateCode {
+    Initializing = 0;
+    Healthy = 1;
+    Abnormal = 2;
+    StandBy = 3;
 }

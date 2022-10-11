@@ -118,17 +118,17 @@ func (c *Client) Register() error {
 }
 
 // GetComponentStates calls DataCoord GetComponentStates services
-func (c *Client) GetComponentStates(ctx context.Context) (*internalpb.ComponentStates, error) {
+func (c *Client) GetComponentStates(ctx context.Context) (*milvuspb.ComponentStates, error) {
 	ret, err := c.grpcClient.ReCall(ctx, func(client interface{}) (interface{}, error) {
 		if !funcutil.CheckCtxValid(ctx) {
 			return nil, ctx.Err()
 		}
-		return client.(datapb.DataCoordClient).GetComponentStates(ctx, &internalpb.GetComponentStatesRequest{})
+		return client.(datapb.DataCoordClient).GetComponentStates(ctx, &milvuspb.GetComponentStatesRequest{})
 	})
 	if err != nil || ret == nil {
 		return nil, err
 	}
-	return ret.(*internalpb.ComponentStates), err
+	return ret.(*milvuspb.ComponentStates), err
 }
 
 // GetTimeTickChannel return the name of time tick channel.
@@ -386,6 +386,27 @@ func (c *Client) GetFlushedSegments(ctx context.Context, req *datapb.GetFlushedS
 	return ret.(*datapb.GetFlushedSegmentsResponse), err
 }
 
+// GetSegmentsByStates returns segment list of requested collection/partition and segment states
+//
+// ctx is the context to control request deadline and cancellation
+// req contains the collection/partition id and segment states to query
+// when partition is lesser or equal to 0, all segments of collection will be returned
+//
+// response struct `GetSegmentsByStatesResponse` contains segment id list
+// error is returned only when some communication issue occurs
+func (c *Client) GetSegmentsByStates(ctx context.Context, req *datapb.GetSegmentsByStatesRequest) (*datapb.GetSegmentsByStatesResponse, error) {
+	ret, err := c.grpcClient.ReCall(ctx, func(client interface{}) (interface{}, error) {
+		if !funcutil.CheckCtxValid(ctx) {
+			return nil, ctx.Err()
+		}
+		return client.(datapb.DataCoordClient).GetSegmentsByStates(ctx, req)
+	})
+	if err != nil || ret == nil {
+		return nil, err
+	}
+	return ret.(*datapb.GetSegmentsByStatesResponse), err
+}
+
 // ShowConfigurations gets specified configurations para of DataCoord
 func (c *Client) ShowConfigurations(ctx context.Context, req *internalpb.ShowConfigurationsRequest) (*internalpb.ShowConfigurationsResponse, error) {
 	ret, err := c.grpcClient.ReCall(ctx, func(client interface{}) (interface{}, error) {
@@ -602,6 +623,20 @@ func (c *Client) MarkSegmentsDropped(ctx context.Context, req *datapb.MarkSegmen
 			return nil, ctx.Err()
 		}
 		return client.(datapb.DataCoordClient).MarkSegmentsDropped(ctx, req)
+	})
+	if err != nil || ret == nil {
+		return nil, err
+	}
+	return ret.(*commonpb.Status), err
+}
+
+// BroadCastAlteredCollection is the DataCoord client side code for BroadCastAlteredCollection call.
+func (c *Client) BroadCastAlteredCollection(ctx context.Context, req *milvuspb.AlterCollectionRequest) (*commonpb.Status, error) {
+	ret, err := c.grpcClient.ReCall(ctx, func(client interface{}) (interface{}, error) {
+		if !funcutil.CheckCtxValid(ctx) {
+			return nil, ctx.Err()
+		}
+		return client.(datapb.DataCoordClient).BroadCastAlteredCollection(ctx, req)
 	})
 	if err != nil || ret == nil {
 		return nil, err

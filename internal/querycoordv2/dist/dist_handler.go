@@ -1,3 +1,19 @@
+// Licensed to the LF AI & Data foundation under one
+// or more contributor license agreements. See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership. The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package dist
 
 import (
@@ -54,7 +70,9 @@ func (dh *distHandler) start(ctx context.Context) {
 		case <-ticker.C:
 			dh.mu.Lock()
 			cctx, cancel := context.WithTimeout(ctx, distReqTimeout)
-			resp, err := dh.client.GetDataDistribution(cctx, dh.nodeID, &querypb.GetDataDistributionRequest{})
+			resp, err := dh.client.GetDataDistribution(cctx, dh.nodeID, &querypb.GetDataDistributionRequest{
+				Base: &commonpb.MsgBase{MsgType: commonpb.MsgType_GetDistribution},
+			})
 			cancel()
 
 			if err != nil || resp.GetStatus().GetErrorCode() != commonpb.ErrorCode_Success {
@@ -175,7 +193,9 @@ func (dh *distHandler) getDistribution(ctx context.Context) {
 	dh.mu.Lock()
 	defer dh.mu.Unlock()
 	cctx, cancel := context.WithTimeout(ctx, distReqTimeout)
-	resp, err := dh.client.GetDataDistribution(cctx, dh.nodeID, &querypb.GetDataDistributionRequest{})
+	resp, err := dh.client.GetDataDistribution(cctx, dh.nodeID, &querypb.GetDataDistributionRequest{
+		Base: &commonpb.MsgBase{MsgType: commonpb.MsgType_GetDistribution},
+	})
 	cancel()
 
 	if err != nil || resp.GetStatus().GetErrorCode() != commonpb.ErrorCode_Success {

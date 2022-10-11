@@ -243,7 +243,7 @@ func (s *Server) Run() error {
 }
 
 // GetComponentStates gets states of datacoord and datanodes
-func (s *Server) GetComponentStates(ctx context.Context, req *internalpb.GetComponentStatesRequest) (*internalpb.ComponentStates, error) {
+func (s *Server) GetComponentStates(ctx context.Context, req *milvuspb.GetComponentStatesRequest) (*milvuspb.ComponentStates, error) {
 	return s.dataCoord.GetComponentStates(ctx)
 }
 
@@ -310,6 +310,11 @@ func (s *Server) GetRecoveryInfo(ctx context.Context, req *datapb.GetRecoveryInf
 // GetFlushedSegments get all flushed segments of a partition
 func (s *Server) GetFlushedSegments(ctx context.Context, req *datapb.GetFlushedSegmentsRequest) (*datapb.GetFlushedSegmentsResponse, error) {
 	return s.dataCoord.GetFlushedSegments(ctx, req)
+}
+
+// GetSegmentsByStates get all segments of a partition by given states
+func (s *Server) GetSegmentsByStates(ctx context.Context, req *datapb.GetSegmentsByStatesRequest) (*datapb.GetSegmentsByStatesResponse, error) {
+	return s.dataCoord.GetSegmentsByStates(ctx, req)
 }
 
 // ShowConfigurations gets specified configurations para of DataCoord
@@ -391,4 +396,8 @@ func (s *Server) UnsetIsImportingState(ctx context.Context, request *datapb.Unse
 // MarkSegmentsDropped is the distributed caller of MarkSegmentsDropped.
 func (s *Server) MarkSegmentsDropped(ctx context.Context, req *datapb.MarkSegmentsDroppedRequest) (*commonpb.Status, error) {
 	return s.dataCoord.MarkSegmentsDropped(ctx, req)
+}
+
+func (s *Server) BroadCastAlteredCollection(ctx context.Context, request *milvuspb.AlterCollectionRequest) (*commonpb.Status, error) {
+	return s.dataCoord.BroadCastAlteredCollection(ctx, request)
 }

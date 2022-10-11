@@ -33,7 +33,7 @@ import (
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockDataCoord struct {
-	states                    *internalpb.ComponentStates
+	states                    *milvuspb.ComponentStates
 	status                    *commonpb.Status
 	err                       error
 	initErr                   error
@@ -50,6 +50,7 @@ type MockDataCoord struct {
 	partStatResp              *datapb.GetPartitionStatisticsResponse
 	recoverResp               *datapb.GetRecoveryInfoResponse
 	flushSegResp              *datapb.GetFlushedSegmentsResponse
+	SegByStatesResp           *datapb.GetSegmentsByStatesResponse
 	configResp                *internalpb.ShowConfigurationsResponse
 	metricResp                *milvuspb.GetMetricsResponse
 	compactionStateResp       *milvuspb.GetCompactionStateResponse
@@ -66,6 +67,7 @@ type MockDataCoord struct {
 	addSegmentResp            *commonpb.Status
 	unsetIsImportingStateResp *commonpb.Status
 	markSegmentsDroppedResp   *commonpb.Status
+	broadCastResp             *commonpb.Status
 }
 
 func (m *MockDataCoord) Init() error {
@@ -90,7 +92,7 @@ func (m *MockDataCoord) SetEtcdClient(etcdClient *clientv3.Client) {
 func (m *MockDataCoord) SetIndexCoord(indexCoord types.IndexCoord) {
 }
 
-func (m *MockDataCoord) GetComponentStates(ctx context.Context) (*internalpb.ComponentStates, error) {
+func (m *MockDataCoord) GetComponentStates(ctx context.Context) (*milvuspb.ComponentStates, error) {
 	return m.states, m.err
 }
 
@@ -144,6 +146,10 @@ func (m *MockDataCoord) GetRecoveryInfo(ctx context.Context, req *datapb.GetReco
 
 func (m *MockDataCoord) GetFlushedSegments(ctx context.Context, req *datapb.GetFlushedSegmentsRequest) (*datapb.GetFlushedSegmentsResponse, error) {
 	return m.flushSegResp, m.err
+}
+
+func (m *MockDataCoord) GetSegmentsByStates(ctx context.Context, req *datapb.GetSegmentsByStatesRequest) (*datapb.GetSegmentsByStatesResponse, error) {
+	return m.SegByStatesResp, m.err
 }
 
 func (m *MockDataCoord) ShowConfigurations(ctx context.Context, req *internalpb.ShowConfigurationsRequest) (*internalpb.ShowConfigurationsResponse, error) {
@@ -214,6 +220,10 @@ func (m *MockDataCoord) MarkSegmentsDropped(ctx context.Context, req *datapb.Mar
 	return m.markSegmentsDroppedResp, m.err
 }
 
+func (m *MockDataCoord) BroadCastAlteredCollection(ctx context.Context, req *milvuspb.AlterCollectionRequest) (*commonpb.Status, error) {
+	return m.broadCastResp, m.err
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func Test_NewServer(t *testing.T) {
 	ctx := context.Background()
@@ -232,7 +242,7 @@ func Test_NewServer(t *testing.T) {
 
 	t.Run("GetComponentStates", func(t *testing.T) {
 		server.dataCoord = &MockDataCoord{
-			states: &internalpb.ComponentStates{},
+			states: &milvuspb.ComponentStates{},
 		}
 		states, err := server.GetComponentStates(ctx, nil)
 		assert.Nil(t, err)

@@ -74,3 +74,16 @@ const (
 	// SegmentIndexPath storage path const for segment index files.
 	SegmentIndexPath = `index_files`
 )
+
+const (
+	IndexParamsKey = "params"
+	IndexTypeKey   = "index_type"
+	MetricTypeKey  = "metric_type"
+	DimKey         = "dim"
+)
+
+//  Collection properties key
+
+const (
+	CollectionTTLConfigKey = "collection.ttl.seconds"
+)

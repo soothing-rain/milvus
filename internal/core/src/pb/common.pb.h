@@ -162,6 +162,7 @@ enum ErrorCode : int {
   SegmentNotFound = 47,
   ForceDeny = 48,
   RateLimit = 49,
+  NodeIDNotMatch = 50,
   DataCoordNA = 100,
   DDRequestRace = 1000,
   ErrorCode_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::min(),
@@ -285,6 +286,7 @@ enum MsgType : int {
   CreateAlias = 108,
   DropAlias = 109,
   AlterAlias = 110,
+  AlterCollection = 111,
   CreatePartition = 200,
   DropPartition = 201,
   HasPartition = 202,
@@ -556,6 +558,33 @@ inline bool ObjectPrivilege_Parse(
     const std::string& name, ObjectPrivilege* value) {
   return ::PROTOBUF_NAMESPACE_ID::internal::ParseNamedEnum<ObjectPrivilege>(
     ObjectPrivilege_descriptor(), name, value);
+}
+enum StateCode : int {
+  Initializing = 0,
+  Healthy = 1,
+  Abnormal = 2,
+  StandBy = 3,
+  StateCode_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::min(),
+  StateCode_INT_MAX_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::max()
+};
+bool StateCode_IsValid(int value);
+constexpr StateCode StateCode_MIN = Initializing;
+constexpr StateCode StateCode_MAX = StandBy;
+constexpr int StateCode_ARRAYSIZE = StateCode_MAX + 1;
+
+const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* StateCode_descriptor();
+template<typename T>
+inline const std::string& StateCode_Name(T enum_t_value) {
+  static_assert(::std::is_same<T, StateCode>::value ||
+    ::std::is_integral<T>::value,
+    "Incorrect type passed to function StateCode_Name.");
+  return ::PROTOBUF_NAMESPACE_ID::internal::NameOfEnum(
+    StateCode_descriptor(), enum_t_value);
+}
+inline bool StateCode_Parse(
+    const std::string& name, StateCode* value) {
+  return ::PROTOBUF_NAMESPACE_ID::internal::ParseNamedEnum<StateCode>(
+    StateCode_descriptor(), name, value);
 }
 // ===================================================================
 
@@ -1700,6 +1729,7 @@ class MsgBase :
     kMsgIDFieldNumber = 2,
     kTimestampFieldNumber = 3,
     kSourceIDFieldNumber = 4,
+    kTargetIDFieldNumber = 5,
     kMsgTypeFieldNumber = 1,
   };
   // int64 msgID = 2;
@@ -1717,6 +1747,11 @@ class MsgBase :
   ::PROTOBUF_NAMESPACE_ID::int64 sourceid() const;
   void set_sourceid(::PROTOBUF_NAMESPACE_ID::int64 value);
 
+  // int64 targetID = 5;
+  void clear_targetid();
+  ::PROTOBUF_NAMESPACE_ID::int64 targetid() const;
+  void set_targetid(::PROTOBUF_NAMESPACE_ID::int64 value);
+
   // .milvus.proto.common.MsgType msg_type = 1;
   void clear_msg_type();
   ::milvus::proto::common::MsgType msg_type() const;
@@ -1730,6 +1765,7 @@ class MsgBase :
   ::PROTOBUF_NAMESPACE_ID::int64 msgid_;
   ::PROTOBUF_NAMESPACE_ID::uint64 timestamp_;
   ::PROTOBUF_NAMESPACE_ID::int64 sourceid_;
+  ::PROTOBUF_NAMESPACE_ID::int64 targetid_;
   int msg_type_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_common_2eproto;
@@ -2811,6 +2847,20 @@ inline void MsgBase::set_sourceid(::PROTOBUF_NAMESPACE_ID::int64 value) {
   // @@protoc_insertion_point(field_set:milvus.proto.common.MsgBase.sourceID)
 }
 
+// int64 targetID = 5;
+inline void MsgBase::clear_targetid() {
+  targetid_ = PROTOBUF_LONGLONG(0);
+}
+inline ::PROTOBUF_NAMESPACE_ID::int64 MsgBase::targetid() const {
+  // @@protoc_insertion_point(field_get:milvus.proto.common.MsgBase.targetID)
+  return targetid_;
+}
+inline void MsgBase::set_targetid(::PROTOBUF_NAMESPACE_ID::int64 value) {
+  
+  targetid_ = value;
+  // @@protoc_insertion_point(field_set:milvus.proto.common.MsgBase.targetID)
+}
+
 // -------------------------------------------------------------------
 
 // MsgHeader
@@ -3118,6 +3168,11 @@ template <> struct is_proto_enum< ::milvus::proto::common::ObjectPrivilege> : ::
 template <>
 inline const EnumDescriptor* GetEnumDescriptor< ::milvus::proto::common::ObjectPrivilege>() {
   return ::milvus::proto::common::ObjectPrivilege_descriptor();
+}
+template <> struct is_proto_enum< ::milvus::proto::common::StateCode> : ::std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor< ::milvus::proto::common::StateCode>() {
+  return ::milvus::proto::common::StateCode_descriptor();
 }
 
 PROTOBUF_NAMESPACE_CLOSE

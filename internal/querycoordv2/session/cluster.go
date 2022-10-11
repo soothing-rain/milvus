@@ -1,3 +1,19 @@
+// Licensed to the LF AI & Data foundation under one
+// or more contributor license agreements. See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership. The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package session
 
 import (
@@ -7,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/milvus-io/milvus/api/commonpb"
 	"github.com/milvus-io/milvus/api/milvuspb"
 	grpcquerynodeclient "github.com/milvus-io/milvus/internal/distributed/querynode/client"
@@ -92,6 +109,8 @@ func (c *QueryCluster) LoadSegments(ctx context.Context, nodeID int64, req *quer
 	var status *commonpb.Status
 	var err error
 	err1 := c.send(ctx, nodeID, func(cli *grpcquerynodeclient.Client) {
+		req := proto.Clone(req).(*querypb.LoadSegmentsRequest)
+		req.Base.TargetID = nodeID
 		status, err = cli.LoadSegments(ctx, req)
 	})
 	if err1 != nil {
@@ -104,6 +123,8 @@ func (c *QueryCluster) WatchDmChannels(ctx context.Context, nodeID int64, req *q
 	var status *commonpb.Status
 	var err error
 	err1 := c.send(ctx, nodeID, func(cli *grpcquerynodeclient.Client) {
+		req := proto.Clone(req).(*querypb.WatchDmChannelsRequest)
+		req.Base.TargetID = nodeID
 		status, err = cli.WatchDmChannels(ctx, req)
 	})
 	if err1 != nil {
@@ -116,6 +137,8 @@ func (c *QueryCluster) UnsubDmChannel(ctx context.Context, nodeID int64, req *qu
 	var status *commonpb.Status
 	var err error
 	err1 := c.send(ctx, nodeID, func(cli *grpcquerynodeclient.Client) {
+		req := proto.Clone(req).(*querypb.UnsubDmChannelRequest)
+		req.Base.TargetID = nodeID
 		status, err = cli.UnsubDmChannel(ctx, req)
 	})
 	if err1 != nil {
@@ -128,6 +151,8 @@ func (c *QueryCluster) ReleaseSegments(ctx context.Context, nodeID int64, req *q
 	var status *commonpb.Status
 	var err error
 	err1 := c.send(ctx, nodeID, func(cli *grpcquerynodeclient.Client) {
+		req := proto.Clone(req).(*querypb.ReleaseSegmentsRequest)
+		req.Base.TargetID = nodeID
 		status, err = cli.ReleaseSegments(ctx, req)
 	})
 	if err1 != nil {
@@ -140,6 +165,10 @@ func (c *QueryCluster) GetDataDistribution(ctx context.Context, nodeID int64, re
 	var resp *querypb.GetDataDistributionResponse
 	var err error
 	err1 := c.send(ctx, nodeID, func(cli *grpcquerynodeclient.Client) {
+		req := proto.Clone(req).(*querypb.GetDataDistributionRequest)
+		req.Base = &commonpb.MsgBase{
+			TargetID: nodeID,
+		}
 		resp, err = cli.GetDataDistribution(ctx, req)
 	})
 	if err1 != nil {
@@ -168,6 +197,8 @@ func (c *QueryCluster) SyncDistribution(ctx context.Context, nodeID int64, req *
 		err  error
 	)
 	err1 := c.send(ctx, nodeID, func(cli *grpcquerynodeclient.Client) {
+		req := proto.Clone(req).(*querypb.SyncDistributionRequest)
+		req.Base.TargetID = nodeID
 		resp, err = cli.SyncDistribution(ctx, req)
 	})
 	if err1 != nil {

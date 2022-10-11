@@ -33,7 +33,6 @@ import (
 
 	"github.com/milvus-io/milvus/api/commonpb"
 	"github.com/milvus-io/milvus/api/milvuspb"
-	pnc "github.com/milvus-io/milvus/internal/distributed/proxy/client"
 	"github.com/milvus-io/milvus/internal/log"
 	"github.com/milvus-io/milvus/internal/proto/internalpb"
 	"github.com/milvus-io/milvus/internal/proto/proxypb"
@@ -45,7 +44,6 @@ import (
 	"github.com/milvus-io/milvus/internal/util/funcutil"
 	"github.com/milvus-io/milvus/internal/util/logutil"
 	"github.com/milvus-io/milvus/internal/util/paramtable"
-	"github.com/milvus-io/milvus/internal/util/sessionutil"
 	"github.com/milvus-io/milvus/internal/util/trace"
 	"github.com/milvus-io/milvus/internal/util/typeutil"
 
@@ -175,23 +173,8 @@ func (s *Server) init() error {
 	}
 	log.Debug("grpc init done ...")
 
-	s.rootCoord.UpdateStateCode(internalpb.StateCode_Initializing)
-	log.Debug("RootCoord", zap.Any("State", internalpb.StateCode_Initializing))
-	s.rootCoord.SetNewProxyClient(
-		func(se *sessionutil.Session) (types.Proxy, error) {
-			cli, err := pnc.NewClient(s.ctx, se.Address)
-			if err != nil {
-				return nil, err
-			}
-			if err := cli.Init(); err != nil {
-				return nil, err
-			}
-			if err := cli.Start(); err != nil {
-				return nil, err
-			}
-			return cli, nil
-		},
-	)
+	s.rootCoord.UpdateStateCode(commonpb.StateCode_Initializing)
+	log.Debug("RootCoord", zap.Any("State", commonpb.StateCode_Initializing))
 
 	if s.newDataCoordClient != nil {
 		log.Debug("RootCoord start to create DataCoord client")
@@ -326,7 +309,7 @@ func (s *Server) Stop() error {
 }
 
 // GetComponentStates gets the component states of RootCoord.
-func (s *Server) GetComponentStates(ctx context.Context, req *internalpb.GetComponentStatesRequest) (*internalpb.ComponentStates, error) {
+func (s *Server) GetComponentStates(ctx context.Context, req *milvuspb.GetComponentStatesRequest) (*milvuspb.ComponentStates, error) {
 	return s.rootCoord.GetComponentStates(ctx)
 }
 
@@ -490,4 +473,8 @@ func (s *Server) SelectGrant(ctx context.Context, request *milvuspb.SelectGrantR
 
 func (s *Server) ListPolicy(ctx context.Context, request *internalpb.ListPolicyRequest) (*internalpb.ListPolicyResponse, error) {
 	return s.rootCoord.ListPolicy(ctx, request)
+}
+
+func (s *Server) AlterCollection(ctx context.Context, request *milvuspb.AlterCollectionRequest) (*commonpb.Status, error) {
+	return s.rootCoord.AlterCollection(ctx, request)
 }

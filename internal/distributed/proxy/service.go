@@ -469,8 +469,8 @@ func (s *Server) init() error {
 	s.proxy.SetQueryCoordClient(s.queryCoordClient)
 	log.Debug("set QueryCoord client for Proxy done")
 
-	log.Debug(fmt.Sprintf("update Proxy's state to %s", internalpb.StateCode_Initializing.String()))
-	s.proxy.UpdateStateCode(internalpb.StateCode_Initializing)
+	log.Debug(fmt.Sprintf("update Proxy's state to %s", commonpb.StateCode_Initializing.String()))
+	s.proxy.UpdateStateCode(commonpb.StateCode_Initializing)
 
 	log.Debug("init Proxy")
 	if err := s.proxy.Init(); err != nil {
@@ -539,7 +539,7 @@ func (s *Server) Stop() error {
 }
 
 // GetComponentStates get the component states
-func (s *Server) GetComponentStates(ctx context.Context, request *internalpb.GetComponentStatesRequest) (*internalpb.ComponentStates, error) {
+func (s *Server) GetComponentStates(ctx context.Context, request *milvuspb.GetComponentStatesRequest) (*milvuspb.ComponentStates, error) {
 	return s.proxy.GetComponentStates(ctx)
 }
 
@@ -592,6 +592,10 @@ func (s *Server) ShowCollections(ctx context.Context, request *milvuspb.ShowColl
 	return s.proxy.ShowCollections(ctx, request)
 }
 
+func (s *Server) AlterCollection(ctx context.Context, request *milvuspb.AlterCollectionRequest) (*commonpb.Status, error) {
+	return s.proxy.AlterCollection(ctx, request)
+}
+
 // CreatePartition notifies Proxy to create a partition
 func (s *Server) CreatePartition(ctx context.Context, request *milvuspb.CreatePartitionRequest) (*commonpb.Status, error) {
 	return s.proxy.CreatePartition(ctx, request)
@@ -625,6 +629,10 @@ func (s *Server) GetPartitionStatistics(ctx context.Context, request *milvuspb.G
 // ShowPartitions notifies Proxy to show the partitions
 func (s *Server) ShowPartitions(ctx context.Context, request *milvuspb.ShowPartitionsRequest) (*milvuspb.ShowPartitionsResponse, error) {
 	return s.proxy.ShowPartitions(ctx, request)
+}
+
+func (s *Server) GetLoadingProgress(ctx context.Context, request *milvuspb.GetLoadingProgressRequest) (*milvuspb.GetLoadingProgressResponse, error) {
+	return s.proxy.GetLoadingProgress(ctx, request)
 }
 
 // CreateIndex notifies Proxy to create index
@@ -773,7 +781,7 @@ func (s *Server) Check(ctx context.Context, req *grpc_health_v1.HealthCheckReque
 	if state.Status.ErrorCode != commonpb.ErrorCode_Success {
 		return ret, nil
 	}
-	if state.State.StateCode != internalpb.StateCode_Healthy {
+	if state.State.StateCode != commonpb.StateCode_Healthy {
 		return ret, nil
 	}
 	ret.Status = grpc_health_v1.HealthCheckResponse_SERVING
@@ -792,7 +800,7 @@ func (s *Server) Watch(req *grpc_health_v1.HealthCheckRequest, server grpc_healt
 	if state.Status.ErrorCode != commonpb.ErrorCode_Success {
 		return server.Send(ret)
 	}
-	if state.State.StateCode != internalpb.StateCode_Healthy {
+	if state.State.StateCode != commonpb.StateCode_Healthy {
 		return server.Send(ret)
 	}
 	ret.Status = grpc_health_v1.HealthCheckResponse_SERVING

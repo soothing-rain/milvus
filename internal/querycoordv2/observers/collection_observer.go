@@ -1,3 +1,19 @@
+// Licensed to the LF AI & Data foundation under one
+// or more contributor license agreements. See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership. The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package observers
 
 import (
@@ -70,7 +86,7 @@ func (ob *CollectionObserver) observeTimeout() {
 	collections := ob.meta.CollectionManager.GetAllCollections()
 	for _, collection := range collections {
 		if collection.GetStatus() != querypb.LoadStatus_Loading ||
-			time.Now().Before(collection.CreatedAt.Add(Params.QueryCoordCfg.LoadTimeoutSeconds)) {
+			time.Now().Before(collection.UpdatedAt.Add(Params.QueryCoordCfg.LoadTimeoutSeconds)) {
 			continue
 		}
 
@@ -172,6 +188,9 @@ func (ob *CollectionObserver) observeCollectionLoadStatus(collection *meta.Colle
 
 	updated := collection.Clone()
 	updated.LoadPercentage = int32(loadedCount * 100 / targetNum)
+	if updated.LoadPercentage <= collection.LoadPercentage {
+		return
+	}
 	if loadedCount >= len(segmentTargets)+len(channelTargets) {
 		updated.Status = querypb.LoadStatus_Loaded
 		ob.meta.CollectionManager.UpdateCollection(updated)
@@ -181,11 +200,9 @@ func (ob *CollectionObserver) observeCollectionLoadStatus(collection *meta.Colle
 	} else {
 		ob.meta.CollectionManager.UpdateCollectionInMemory(updated)
 	}
-	if updated.LoadPercentage != collection.LoadPercentage {
-		log.Info("collection load status updated",
-			zap.Int32("loadPercentage", updated.LoadPercentage),
-			zap.Int32("collectionStatus", int32(updated.GetStatus())))
-	}
+	log.Info("collection load status updated",
+		zap.Int32("loadPercentage", updated.LoadPercentage),
+		zap.Int32("collectionStatus", int32(updated.GetStatus())))
 }
 
 func (ob *CollectionObserver) observePartitionLoadStatus(partition *meta.Partition) {
@@ -230,18 +247,21 @@ func (ob *CollectionObserver) observePartitionLoadStatus(partition *meta.Partiti
 			zap.Int("load-segment-count", loadedCount-subChannelCount))
 	}
 
-	partition = partition.Clone()
-	partition.LoadPercentage = int32(loadedCount * 100 / targetNum)
+	updated := partition.Clone()
+	updated.LoadPercentage = int32(loadedCount * 100 / targetNum)
+	if updated.LoadPercentage <= partition.LoadPercentage {
+		return
+	}
 	if loadedCount >= len(segmentTargets)+len(channelTargets) {
-		partition.Status = querypb.LoadStatus_Loaded
-		ob.meta.CollectionManager.PutPartition(partition)
+		updated.Status = querypb.LoadStatus_Loaded
+		ob.meta.CollectionManager.UpdatePartition(updated)
 
-		elapsed := time.Since(partition.CreatedAt)
+		elapsed := time.Since(updated.CreatedAt)
 		metrics.QueryCoordLoadLatency.WithLabelValues().Observe(float64(elapsed.Milliseconds()))
 	} else {
-		ob.meta.CollectionManager.UpdatePartitionInMemory(partition)
+		ob.meta.CollectionManager.UpdatePartitionInMemory(updated)
 	}
 	log.Info("partition load status updated",
-		zap.Int32("loadPercentage", partition.LoadPercentage),
-		zap.Int32("partitionStatus", int32(partition.GetStatus())))
+		zap.Int32("loadPercentage", updated.LoadPercentage),
+		zap.Int32("partitionStatus", int32(updated.GetStatus())))
 }
