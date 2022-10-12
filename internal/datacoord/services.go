@@ -150,12 +150,9 @@ func (s *Server) AssignSegmentID(ctx context.Context, req *datapb.AssignSegmentI
 			zap.Int64("import task ID", r.GetImportTaskID()))
 
 		// Load the collection info from Root Coordinator, if it is not found in server meta.
-		if s.meta.GetCollection(r.GetCollectionID()) == nil {
-			err := s.loadCollectionFromRootCoord(ctx, r.GetCollectionID())
-			if err != nil {
-				log.Warn("failed to load collection in alloc segment", zap.Any("request", r), zap.Error(err))
-				continue
-			}
+		_, err := s.handler.GetCollection(ctx, r.GetCollectionID())
+		if err != nil {
+			log.Warn("cannot get collection schema", zap.Error(err))
 		}
 
 		// Add the channel to cluster for watching.
@@ -1359,7 +1356,7 @@ func (s *Server) MarkSegmentsDropped(ctx context.Context, req *datapb.MarkSegmen
 	}, nil
 }
 
-func (s *Server) BroadCastAlteredCollection(ctx context.Context,
+func (s *Server) BroadcastAlteredCollection(ctx context.Context,
 	req *milvuspb.AlterCollectionRequest) (*commonpb.Status, error) {
 	errResp := &commonpb.Status{
 		ErrorCode: commonpb.ErrorCode_UnexpectedError,
