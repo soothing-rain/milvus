@@ -61,7 +61,7 @@ func (dn *deleteNode) showDelBuf(segIDs []UniqueID, ts Timestamp) {
 	for _, segID := range segIDs {
 		if v, ok := dn.delBuf.Load(segID); ok {
 			delDataBuf, _ := v.(*DelDataBuf)
-			log.Debug("delta buffer status",
+			log.RatedDebug(1.0, "delta buffer status",
 				zap.Uint64("timestamp", ts),
 				zap.Int64("segment ID", segID),
 				zap.Int64("entries", delDataBuf.GetEntriesNum()),

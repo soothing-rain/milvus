@@ -355,7 +355,7 @@ func (s *Segment) search(searchReq *searchRequest) (*SearchResult, error) {
 
 	loadIndex := s.hasLoadIndexForIndexedField(searchReq.searchFieldID)
 	var searchResult SearchResult
-	log.Debug("start do search on segment",
+	log.RatedDebug(1.0, "start do search on segment",
 		zap.Int64("msgID", searchReq.msgID),
 		zap.Int64("segmentID", s.segmentID),
 		zap.String("segmentType", s.segmentType.String()),
@@ -372,7 +372,7 @@ func (s *Segment) search(searchReq *searchRequest) (*SearchResult, error) {
 	if err := HandleCStatus(&status, "Search failed"); err != nil {
 		return nil, err
 	}
-	log.Debug("do search on segment done",
+	log.RatedDebug(1.0, "do search on segment done",
 		zap.Int64("msgID", searchReq.msgID),
 		zap.Int64("segmentID", s.segmentID),
 		zap.String("segmentType", s.segmentType.String()),
@@ -396,7 +396,7 @@ func (s *Segment) retrieve(plan *RetrievePlan) (*segcorepb.RetrieveResults, erro
 		status = C.Retrieve(s.segmentPtr, plan.cRetrievePlan, ts, &retrieveResult.cRetrieveResult)
 		metrics.QueryNodeSQSegmentLatencyInCore.WithLabelValues(fmt.Sprint(Params.QueryNodeCfg.GetNodeID()),
 			metrics.QueryLabel).Observe(float64(tr.ElapseSpan().Milliseconds()))
-		log.Debug("do retrieve on segment",
+		log.RatedDebug(1.0, "do retrieve on segment",
 			zap.Int64("msgID", plan.msgID),
 			zap.Int64("segmentID", s.segmentID), zap.String("segmentType", s.segmentType.String()))
 
@@ -635,7 +635,7 @@ func (s *Segment) updateBloomFilter(pks []primaryKey) {
 	}
 }
 
-//-------------------------------------------------------------------------------------- interfaces for growing segment
+// -------------------------------------------------------------------------------------- interfaces for growing segment
 func (s *Segment) segmentPreInsert(numOfRecords int) (int64, error) {
 	/*
 		long int
@@ -802,7 +802,7 @@ func (s *Segment) segmentDelete(offset int64, entityIDs []primaryKey, timestamps
 	return nil
 }
 
-//-------------------------------------------------------------------------------------- interfaces for sealed segment
+// -------------------------------------------------------------------------------------- interfaces for sealed segment
 func (s *Segment) segmentLoadFieldData(fieldID int64, rowCount int64, data *schemapb.FieldData) error {
 	/*
 		CStatus
