@@ -785,6 +785,8 @@ func (i *IndexCoord) DropIndex(ctx context.Context, req *indexpb.DropIndexReques
 
 // GetIndexInfos gets the index file paths from IndexCoord.
 func (i *IndexCoord) GetIndexInfos(ctx context.Context, req *indexpb.GetIndexInfoRequest) (*indexpb.GetIndexInfoResponse, error) {
+	log.Debug("IndexCoord GetIndexInfos", zap.Int64("collectionID", req.CollectionID),
+		zap.String("indexName", req.GetIndexName()), zap.Int64s("segIDs", req.GetSegmentIDs()))
 	if !i.isHealthy() {
 		log.Warn(msgIndexCoordIsUnhealthy(i.serverID))
 		return &indexpb.GetIndexInfoResponse{
@@ -816,19 +818,21 @@ func (i *IndexCoord) GetIndexInfos(ctx context.Context, req *indexpb.GetIndexInf
 				indexFilePaths := metautil.BuildSegmentIndexFilePaths(i.chunkManager.RootPath(), segIdx.BuildID, segIdx.IndexVersion,
 					segIdx.PartitionID, segIdx.SegmentID, segIdx.IndexFileKeys)
 
-				ret.SegmentInfo[segID].IndexInfos = append(ret.SegmentInfo[segID].IndexInfos,
-					&indexpb.IndexFilePathInfo{
-						SegmentID:      segID,
-						FieldID:        i.metaTable.GetFieldIDByIndexID(segIdx.CollectionID, segIdx.IndexID),
-						IndexID:        segIdx.IndexID,
-						BuildID:        segIdx.BuildID,
-						IndexName:      i.metaTable.GetIndexNameByID(segIdx.CollectionID, segIdx.IndexID),
-						IndexParams:    i.metaTable.GetIndexParams(segIdx.CollectionID, segIdx.IndexID),
-						IndexFilePaths: indexFilePaths,
-						SerializedSize: segIdx.IndexSize,
-						IndexVersion:   segIdx.IndexVersion,
-						NumRows:        segIdx.NumRows,
-					})
+				if segIdx.IndexState == commonpb.IndexState_Finished {
+					ret.SegmentInfo[segID].IndexInfos = append(ret.SegmentInfo[segID].IndexInfos,
+						&indexpb.IndexFilePathInfo{
+							SegmentID:      segID,
+							FieldID:        i.metaTable.GetFieldIDByIndexID(segIdx.CollectionID, segIdx.IndexID),
+							IndexID:        segIdx.IndexID,
+							BuildID:        segIdx.BuildID,
+							IndexName:      i.metaTable.GetIndexNameByID(segIdx.CollectionID, segIdx.IndexID),
+							IndexParams:    i.metaTable.GetIndexParams(segIdx.CollectionID, segIdx.IndexID),
+							IndexFilePaths: indexFilePaths,
+							SerializedSize: segIdx.IndexSize,
+							IndexVersion:   segIdx.IndexVersion,
+							NumRows:        segIdx.NumRows,
+						})
+				}
 			}
 		}
 	}
@@ -838,6 +842,7 @@ func (i *IndexCoord) GetIndexInfos(ctx context.Context, req *indexpb.GetIndexInf
 
 // DescribeIndex describe the index info of the collection.
 func (i *IndexCoord) DescribeIndex(ctx context.Context, req *indexpb.DescribeIndexRequest) (*indexpb.DescribeIndexResponse, error) {
+	log.Debug("IndexCoord DescribeIndex", zap.Int64("collectionID", req.CollectionID), zap.String("indexName", req.GetIndexName()))
 	if !i.isHealthy() {
 		log.Warn(msgIndexCoordIsUnhealthy(i.serverID))
 		return &indexpb.DescribeIndexResponse{
@@ -1077,7 +1082,9 @@ func (i *IndexCoord) tryAcquireSegmentReferLock(ctx context.Context, buildID Uni
 	// IndexCoord use buildID instead of taskID.
 	log.Info("try to acquire segment reference lock", zap.Int64("buildID", buildID),
 		zap.Int64("ndoeID", nodeID), zap.Int64s("segIDs", segIDs))
-	status, err := i.dataCoordClient.AcquireSegmentLock(ctx, &datapb.AcquireSegmentLockRequest{
+	ctx1, cancel := context.WithTimeout(ctx, reqTimeoutInterval)
+	defer cancel()
+	status, err := i.dataCoordClient.AcquireSegmentLock(ctx1, &datapb.AcquireSegmentLockRequest{
 		TaskID:     buildID,
 		NodeID:     nodeID,
 		SegmentIDs: segIDs,
@@ -1099,7 +1106,9 @@ func (i *IndexCoord) tryAcquireSegmentReferLock(ctx context.Context, buildID Uni
 
 func (i *IndexCoord) tryReleaseSegmentReferLock(ctx context.Context, buildID UniqueID, nodeID UniqueID) error {
 	releaseLock := func() error {
-		status, err := i.dataCoordClient.ReleaseSegmentLock(ctx, &datapb.ReleaseSegmentLockRequest{
+		ctx1, cancel := context.WithTimeout(ctx, reqTimeoutInterval)
+		defer cancel()
+		status, err := i.dataCoordClient.ReleaseSegmentLock(ctx1, &datapb.ReleaseSegmentLockRequest{
 			TaskID: buildID,
 			NodeID: nodeID,
 		})
@@ -1239,7 +1248,9 @@ func (i *IndexCoord) watchFlushedSegmentLoop() {
 }
 
 func (i *IndexCoord) pullSegmentInfo(ctx context.Context, segmentID UniqueID) (*datapb.SegmentInfo, error) {
-	resp, err := i.dataCoordClient.GetSegmentInfo(ctx, &datapb.GetSegmentInfoRequest{
+	ctx1, cancel := context.WithTimeout(ctx, reqTimeoutInterval)
+	defer cancel()
+	resp, err := i.dataCoordClient.GetSegmentInfo(ctx1, &datapb.GetSegmentInfoRequest{
 		SegmentIDs:       []int64{segmentID},
 		IncludeUnHealthy: false,
 	})
