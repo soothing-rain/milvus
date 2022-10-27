@@ -18,6 +18,7 @@ package datacoord
 
 import (
 	"context"
+	"github.com/milvus-io/milvus/internal/util/tsoutil"
 
 	"github.com/milvus-io/milvus-proto/go-api/commonpb"
 	"github.com/milvus-io/milvus/internal/log"
@@ -65,6 +66,8 @@ func (h *ServerHandler) GetDataVChanPositions(channel *channel, partitionID Uniq
 		droppedIDs   = make(typeutil.UniqueSet)
 		seekPosition *internalpb.MsgPosition
 	)
+	var minPosSegID int64
+	var minPosTs uint64
 	for _, s := range segments {
 		if (partitionID > allPartitionID && s.PartitionID != partitionID) ||
 			(s.GetStartPosition() == nil && s.GetDmlPosition() == nil) {
@@ -91,6 +94,8 @@ func (h *ServerHandler) GetDataVChanPositions(channel *channel, partitionID Uniq
 			segmentPosition = s.GetStartPosition()
 		}
 		if seekPosition == nil || segmentPosition.Timestamp < seekPosition.Timestamp {
+			minPosSegID = s.GetPartitionID()
+			minPosTs = segmentPosition.GetTimestamp()
 			seekPosition = segmentPosition
 		}
 	}
@@ -102,10 +107,25 @@ func (h *ServerHandler) GetDataVChanPositions(channel *channel, partitionID Uniq
 			if collection != nil && err == nil {
 				seekPosition = getCollectionStartPosition(channel.Name, collection)
 			}
+			physicalTs, _ := tsoutil.ParseHybridTs(seekPosition.GetTimestamp())
+			log.Info("NEITHER segment position and channel start position are found, setting channel seek position to collection start position",
+				zap.Uint64("position timestamp", seekPosition.GetTimestamp()),
+				zap.Int64("realworld position timestamp", physicalTs))
 		} else {
 			// use passed start positions, skip to ask rootcoord.
 			seekPosition = toMsgPosition(channel.Name, channel.StartPositions)
+			physicalTs, _ := tsoutil.ParseHybridTs(seekPosition.GetTimestamp())
+			log.Info("segment position not found, setting channel seek position to channel start position",
+				zap.Uint64("position timestamp", seekPosition.GetTimestamp()),
+				zap.Int64("realworld position timestamp", physicalTs))
 		}
+	} else {
+		physicalTs, _ := tsoutil.ParseHybridTs(seekPosition.GetTimestamp())
+		log.Info("channel seek position set as minimal segment position",
+			zap.Int64("segment ID", minPosSegID),
+			zap.Uint64("position timestamp", minPosTs),
+			zap.Int64("realworld position timestamp", physicalTs),
+		)
 	}
 
 	return &datapb.VchannelInfo{

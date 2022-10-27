@@ -19,6 +19,7 @@ package datanode
 import (
 	"context"
 	"fmt"
+	"github.com/milvus-io/milvus/internal/util/tsoutil"
 	"sync"
 
 	"github.com/bits-and-blooms/bloom/v3"
@@ -165,6 +166,12 @@ func (c *ChannelMeta) maxRowCountPerSegment(ts Timestamp) (int64, error) {
 // initSegmentBloomFilter initialize segment pkFilter with a new bloom filter.
 // this new BF will be initialized with estimated max rows and default false positive rate.
 func (c *ChannelMeta) initSegmentBloomFilter(s *Segment) error {
+	physicalTs, _ := tsoutil.ParseHybridTs(s.startPos.GetTimestamp())
+	log.Info("####### (tmp debug log) checking total # of segments",
+		zap.Int("# of segments in DataNode mem", len(c.segments)),
+		zap.Int64("segID", s.segmentID),
+		zap.Uint64("start pos", s.startPos.GetTimestamp()),
+		zap.Int64("physical start pos", physicalTs))
 	var ts Timestamp
 	if s.startPos != nil {
 		ts = s.startPos.Timestamp
@@ -287,7 +294,7 @@ func (c *ChannelMeta) initPKBloomFilter(ctx context.Context, s *Segment, statsBi
 
 	// no stats log to parse, initialize a new BF
 	if len(bloomFilterFiles) == 0 {
-		log.Warn("no stats files to load, initializa a new one")
+		log.Warn("no stats files to load, initialize a new one")
 		return c.initSegmentBloomFilter(s)
 	}
 
@@ -327,7 +334,8 @@ func (c *ChannelMeta) initPKBloomFilter(ctx context.Context, s *Segment, statsBi
 }
 
 // listNewSegmentsStartPositions gets all *New Segments* start positions and
-//   transfer segments states from *New* to *Normal*.
+//
+//	transfer segments states from *New* to *Normal*.
 func (c *ChannelMeta) listNewSegmentsStartPositions() []*datapb.SegmentStartPosition {
 	c.segMu.Lock()
 	defer c.segMu.Unlock()
@@ -450,7 +458,8 @@ func (c *ChannelMeta) getCollectionID() UniqueID {
 }
 
 // getCollectionSchema gets collection schema from rootcoord for a certain timestamp.
-//   If you want the latest collection schema, ts should be 0.
+//
+//	If you want the latest collection schema, ts should be 0.
 func (c *ChannelMeta) getCollectionSchema(collID UniqueID, ts Timestamp) (*schemapb.CollectionSchema, error) {
 	if !c.validCollection(collID) {
 		return nil, fmt.Errorf("mismatch collection, want %d, actual %d", c.collectionID, collID)
