@@ -1024,9 +1024,9 @@ func TestUpdateBloomFilter(t *testing.T) {
 			defaultCollectionID,
 			defaultDMLChannel,
 			defaultSegmentVersion,
-			segmentTypeSealed)
+			segmentTypeGrowing)
 		assert.NoError(t, err)
-		seg, err := replica.getSegmentByID(defaultSegmentID, segmentTypeSealed)
+		seg, err := replica.getSegmentByID(defaultSegmentID, segmentTypeGrowing)
 		assert.Nil(t, err)
 		pkValues := []int64{1, 2}
 		pks := make([]primaryKey, len(pkValues))
@@ -1034,10 +1034,8 @@ func TestUpdateBloomFilter(t *testing.T) {
 			pks[index] = newInt64PrimaryKey(v)
 		}
 		seg.updateBloomFilter(pks)
-		buf := make([]byte, 8)
 		for _, v := range pkValues {
-			common.Endian.PutUint64(buf, uint64(v))
-			assert.True(t, seg.pkFilter.Test(buf))
+			assert.True(t, seg.isPKExist(storage.NewInt64PrimaryKey(v)))
 		}
 	})
 	t.Run("test string pk", func(t *testing.T) {
@@ -1048,9 +1046,9 @@ func TestUpdateBloomFilter(t *testing.T) {
 			defaultCollectionID,
 			defaultDMLChannel,
 			defaultSegmentVersion,
-			segmentTypeSealed)
+			segmentTypeGrowing)
 		assert.NoError(t, err)
-		seg, err := replica.getSegmentByID(defaultSegmentID, segmentTypeSealed)
+		seg, err := replica.getSegmentByID(defaultSegmentID, segmentTypeGrowing)
 		assert.Nil(t, err)
 		pkValues := []string{"test1", "test2"}
 		pks := make([]primaryKey, len(pkValues))
@@ -1059,7 +1057,7 @@ func TestUpdateBloomFilter(t *testing.T) {
 		}
 		seg.updateBloomFilter(pks)
 		for _, v := range pkValues {
-			assert.True(t, seg.pkFilter.TestString(v))
+			assert.True(t, seg.isPKExist(storage.NewVarCharPrimaryKey(v)))
 		}
 	})
 
