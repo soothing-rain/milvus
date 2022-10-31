@@ -785,12 +785,15 @@ ExecExprVisitor::ExecTermVisitorImpl(TermExpr& expr_raw) -> BitsetType {
             }
         }
 
+        // TODO: uids are not used and should be removed.
         auto [uids, seg_offsets] = segment_.search_ids(*id_array, timestamp_);
         BitsetType bitset(row_count_);
         for (const auto& offset : seg_offsets) {
             auto _offset = (int64_t)offset.get();
             bitset[_offset] = true;
         }
+        id_array.reset();
+        uids.reset();
         AssertInfo(bitset.size() == row_count_, "[ExecExprVisitor]Size of results not equal row count");
         return bitset;
     }
