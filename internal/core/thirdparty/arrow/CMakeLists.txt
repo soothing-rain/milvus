@@ -55,7 +55,7 @@ macro( build_arrow )
     if ( WIN32 )
         set( ARROW_CMAKE_ARGS ${ARROW_CMAKE_ARGS} "-DARROW_JEMALLOC=OFF" )
     else ()
-        set( ARROW_CMAKE_ARGS ${ARROW_CMAKE_ARGS} "-DARROW_JEMALLOC=ON" )
+        set( ARROW_CMAKE_ARGS ${ARROW_CMAKE_ARGS} "-DARROW_JEMALLOC=OFF" )
     endif ()
 
     ExternalProject_Add(

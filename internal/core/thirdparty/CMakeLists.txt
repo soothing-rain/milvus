@@ -76,9 +76,9 @@ if ( LINUX OR APPLE)
 endif()
 
 # ******************************* Thirdparty jemalloc ********************************
-if ( LINUX )
-    add_subdirectory( jemalloc )
-endif()
+#if ( LINUX )
+#    add_subdirectory( jemalloc )
+#endif()
 
 # ******************************* Thirdparty rapidxml ********************************
 #if ( LINUX )
