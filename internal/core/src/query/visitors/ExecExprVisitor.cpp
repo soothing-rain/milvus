@@ -767,16 +767,14 @@ ExecExprVisitor::ExecTermVisitorImpl(TermExpr& expr_raw) -> BitsetType {
         auto id_array = std::make_unique<IdArray>();
         switch (field_meta.get_data_type()) {
             case DataType::INT64: {
-                auto dst_ids = id_array->mutable_int_id();
                 for (const auto& id : expr.terms_) {
-                    dst_ids->add_data((int64_t&)id);
+                    id_array->mutable_int_id()->add_data((int64_t&)id);
                 }
                 break;
             }
             case DataType::VARCHAR: {
-                auto dst_ids = id_array->mutable_str_id();
                 for (const auto& id : expr.terms_) {
-                    dst_ids->add_data((std::string&)id);
+                    id_array->mutable_str_id()->add_data((std::string&)id);
                 }
                 break;
             }
@@ -785,12 +783,13 @@ ExecExprVisitor::ExecTermVisitorImpl(TermExpr& expr_raw) -> BitsetType {
             }
         }
 
-        auto [uids, seg_offsets] = segment_.search_ids(*id_array, timestamp_);
+        auto seg_offsets = segment_.search_ids(*id_array, timestamp_);
         BitsetType bitset(row_count_);
         for (const auto& offset : seg_offsets) {
             auto _offset = (int64_t)offset.get();
             bitset[_offset] = true;
         }
+        id_array.reset();
         AssertInfo(bitset.size() == row_count_, "[ExecExprVisitor]Size of results not equal row count");
         return bitset;
     }

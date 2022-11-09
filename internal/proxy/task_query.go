@@ -438,6 +438,9 @@ func reduceRetrieveResults(ctx context.Context, retrieveResults []*internalpb.Re
 
 	validRetrieveResults := []*internalpb.RetrieveResults{}
 	for _, r := range retrieveResults {
+		if r.GetIds() == nil {
+			continue
+		}
 		size := typeutil.GetSizeOfIDs(r.GetIds())
 		if r == nil || len(r.GetFieldsData()) == 0 || size == 0 {
 			continue

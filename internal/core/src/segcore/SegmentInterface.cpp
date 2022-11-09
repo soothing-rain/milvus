@@ -72,8 +72,6 @@ SegmentInternalInterface::Retrieve(const query::RetrievePlan* plan, Timestamp ti
 
     results->mutable_offset()->Add(retrieve_results.result_offsets_.begin(), retrieve_results.result_offsets_.end());
 
-    auto fields_data = results->mutable_fields_data();
-    auto ids = results->mutable_ids();
     auto pk_field_id = plan->schema_.get_primary_field_id();
     for (auto field_id : plan->field_ids_) {
         auto& field_mata = plan->schema_[field_id];
@@ -81,20 +79,17 @@ SegmentInternalInterface::Retrieve(const query::RetrievePlan* plan, Timestamp ti
         auto col =
             bulk_subscript(field_id, retrieve_results.result_offsets_.data(), retrieve_results.result_offsets_.size());
         auto col_data = col.release();
-        fields_data->AddAllocated(col_data);
         if (pk_field_id.has_value() && pk_field_id.value() == field_id) {
             switch (field_mata.get_data_type()) {
                 case DataType::INT64: {
-                    auto int_ids = ids->mutable_int_id();
                     auto src_data = col_data->scalars().long_data();
-                    int_ids->mutable_data()->Add(src_data.data().begin(), src_data.data().end());
+                    results->mutable_ids()->mutable_int_id()->mutable_data()->Add(src_data.data().begin(), src_data.data().end());
                     break;
                 }
                 case DataType::VARCHAR: {
-                    auto str_ids = ids->mutable_str_id();
                     auto src_data = col_data->scalars().string_data();
                     for (auto i = 0; i < src_data.data_size(); ++i)
-                        *(str_ids->mutable_data()->Add()) = src_data.data(i);
+                        *(results->mutable_ids()->mutable_str_id()->mutable_data()->Add()) = src_data.data(i);
                     break;
                 }
                 default: {
@@ -102,6 +97,8 @@ SegmentInternalInterface::Retrieve(const query::RetrievePlan* plan, Timestamp ti
                 }
             }
         }
+        // Transferring ownership.
+        results->mutable_fields_data()->AddAllocated(col_data);
     }
     return results;
 }

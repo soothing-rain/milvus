@@ -98,7 +98,7 @@ Retrieve(CSegmentInterface c_segment, CRetrievePlan c_plan, uint64_t timestamp, 
         auto size = retrieve_result->ByteSize();
         void* buffer = malloc(size);
         retrieve_result->SerializePartialToArray(buffer, size);
-
+        retrieve_result.reset();
         result->proto_blob = buffer;
         result->proto_size = size;
         return milvus::SuccessCStatus();

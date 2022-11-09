@@ -50,7 +50,6 @@ func (converter *BytesConverter) UnsafeGoBytes(cbytes *unsafe.Pointer, len int) 
 	}
 	goBytes = (*[maxByteArrayLen]byte)(*cbytes)[:len:len]
 	lease = converter.add(*cbytes)
-	*cbytes = nil
 
 	return lease, goBytes
 }

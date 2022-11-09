@@ -268,6 +268,9 @@ func mergeInternalRetrieveResult(ctx context.Context, retrieveResults []*interna
 
 	validRetrieveResults := []*internalpb.RetrieveResults{}
 	for _, r := range retrieveResults {
+		if r.GetIds() == nil {
+			continue
+		}
 		size := typeutil.GetSizeOfIDs(r.GetIds())
 		if r == nil || len(r.GetFieldsData()) == 0 || size == 0 {
 			continue
@@ -328,8 +331,11 @@ func mergeSegcoreRetrieveResults(ctx context.Context, retrieveResults []*segcore
 
 	validRetrieveResults := []*segcorepb.RetrieveResults{}
 	for _, r := range retrieveResults {
+		if r.GetIds() == nil || len(r.GetOffset()) == 0 {
+			continue
+		}
 		size := typeutil.GetSizeOfIDs(r.GetIds())
-		if r == nil || len(r.GetOffset()) == 0 || size == 0 {
+		if size == 0 {
 			continue
 		}
 		validRetrieveResults = append(validRetrieveResults, r)

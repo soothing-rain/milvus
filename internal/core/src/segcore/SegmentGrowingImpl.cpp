@@ -339,7 +339,7 @@ SegmentGrowingImpl::search_ids(const BitsetView& bitset, Timestamp timestamp) co
     return res_offsets;
 }
 
-std::pair<std::unique_ptr<IdArray>, std::vector<SegOffset>>
+std::vector<SegOffset>
 SegmentGrowingImpl::search_ids(const IdArray& id_array, Timestamp timestamp) const {
     AssertInfo(id_array.has_int_id(), "Id array doesn't have int_id element");
     auto field_id = schema_->get_primary_field_id().value_or(FieldId(-1));
@@ -350,18 +350,15 @@ SegmentGrowingImpl::search_ids(const IdArray& id_array, Timestamp timestamp) con
     std::vector<PkType> pks(ids_size);
     ParsePksFromIDs(pks, data_type, id_array);
 
-    auto res_id_arr = std::make_unique<IdArray>();
     std::vector<SegOffset> res_offsets;
     for (auto pk : pks) {
         auto segOffsets = insert_record_.search_pk(pk, timestamp);
         for (auto offset : segOffsets) {
             switch (data_type) {
                 case DataType::INT64: {
-                    res_id_arr->mutable_int_id()->add_data(std::get<int64_t>(pk));
                     break;
                 }
                 case DataType::VARCHAR: {
-                    res_id_arr->mutable_str_id()->add_data(std::get<std::string>(pk));
                     break;
                 }
                 default: {
@@ -371,7 +368,7 @@ SegmentGrowingImpl::search_ids(const IdArray& id_array, Timestamp timestamp) con
             res_offsets.push_back(offset);
         }
     }
-    return {std::move(res_id_arr), std::move(res_offsets)};
+    return std::move(res_offsets);
 }
 
 std::string
