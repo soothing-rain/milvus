@@ -2671,8 +2671,8 @@ func TestManualCompaction(t *testing.T) {
 		svr.stateCode.Store(commonpb.StateCode_Healthy)
 		svr.compactionTrigger = &mockCompactionTrigger{
 			methods: map[string]interface{}{
-				"forceTriggerCompaction": func(collectionID int64) (UniqueID, error) {
-					return 1, nil
+				"forceTriggerCompaction": func(collectionID int64) (UniqueID, int, error) {
+					return 1, 0, nil
 				},
 			},
 		}
@@ -2690,8 +2690,8 @@ func TestManualCompaction(t *testing.T) {
 		svr.stateCode.Store(commonpb.StateCode_Healthy)
 		svr.compactionTrigger = &mockCompactionTrigger{
 			methods: map[string]interface{}{
-				"forceTriggerCompaction": func(collectionID int64) (UniqueID, error) {
-					return 0, errors.New("mock error")
+				"forceTriggerCompaction": func(collectionID int64) (UniqueID, int, error) {
+					return 0, 0, errors.New("mock error")
 				},
 			},
 		}
@@ -2709,8 +2709,8 @@ func TestManualCompaction(t *testing.T) {
 		svr.stateCode.Store(commonpb.StateCode_Abnormal)
 		svr.compactionTrigger = &mockCompactionTrigger{
 			methods: map[string]interface{}{
-				"forceTriggerCompaction": func(collectionID int64) (UniqueID, error) {
-					return 1, nil
+				"forceTriggerCompaction": func(collectionID int64) (UniqueID, int, error) {
+					return 1, 0, nil
 				},
 			},
 		}

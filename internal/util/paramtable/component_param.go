@@ -1186,6 +1186,7 @@ type dataCoordConfig struct {
 	// compaction
 	EnableCompaction     bool
 	EnableAutoCompaction atomic.Value
+	ForceTriggerLimit    int32
 
 	MinSegmentToMerge                 int
 	MaxSegmentToMerge                 int
@@ -1360,6 +1361,10 @@ func (p *dataCoordConfig) initGCDropTolerance() {
 
 func (p *dataCoordConfig) SetEnableAutoCompaction(enable bool) {
 	p.EnableAutoCompaction.Store(enable)
+}
+
+func (p *dataCoordConfig) initForceTriggerLimit() {
+	p.ForceTriggerLimit = p.Base.ParseInt32WithDefault("dataCoord.compaction.forceTriggerLimit", 10)
 }
 
 func (p *dataCoordConfig) GetEnableAutoCompaction() bool {

@@ -28,7 +28,6 @@ require (
 	github.com/klauspost/compress v1.14.2
 	github.com/lingdor/stackerror v0.0.0-20191119040541-976d8885ed76
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
-	github.com/milvus-io/milvus-proto/go-api v0.0.0-20221126103108-4d988e37ebf2
 	github.com/minio/minio-go/v7 v7.0.17
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/panjf2000/ants/v2 v2.4.8
@@ -187,6 +186,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
+
+require github.com/milvus-io/milvus-proto/go-api v0.0.0-20221207105914-d8fbd2fe8b8f
 
 replace (
 	github.com/apache/pulsar-client-go => github.com/milvus-io/pulsar-client-go v0.6.8

@@ -353,7 +353,7 @@ func Test_compactionTrigger_force(t *testing.T) {
 				segRefer:          tt.fields.segRefer,
 				indexCoord:        indexCoord,
 			}
-			_, err := tr.forceTriggerCompaction(tt.collectionID)
+			_, _, err := tr.forceTriggerCompaction(tt.collectionID)
 			assert.Equal(t, tt.wantErr, err != nil)
 			spy := (tt.fields.compactionHandler).(*spyCompactionHandler)
 			plan := <-spy.spyChan
@@ -381,7 +381,7 @@ func Test_compactionTrigger_force(t *testing.T) {
 				estimateDiskSegmentPolicy: calBySchemaPolicyWithDiskIndex,
 			}
 			tt.collectionID = 1000
-			_, err := tr.forceTriggerCompaction(tt.collectionID)
+			_, _, err := tr.forceTriggerCompaction(tt.collectionID)
 			assert.Equal(t, tt.wantErr, err != nil)
 			// expect max row num =  2048*1024*1024/(128*4) = 4194304
 			assert.EqualValues(t, 4194304, tt.fields.meta.segments.GetSegments()[0].MaxRowNum)
@@ -409,7 +409,7 @@ func Test_compactionTrigger_force(t *testing.T) {
 				estimateDiskSegmentPolicy: calBySchemaPolicyWithDiskIndex,
 			}
 			tt.collectionID = 2000
-			_, err := tr.forceTriggerCompaction(tt.collectionID)
+			_, _, err := tr.forceTriggerCompaction(tt.collectionID)
 			assert.Equal(t, tt.wantErr, err != nil)
 			spy := (tt.fields.compactionHandler).(*spyCompactionHandler)
 			hasPlan := true
@@ -442,7 +442,7 @@ func Test_compactionTrigger_force(t *testing.T) {
 				estimateDiskSegmentPolicy: calBySchemaPolicyWithDiskIndex,
 			}
 			tt.collectionID = 3000
-			_, err := tr.forceTriggerCompaction(tt.collectionID)
+			_, _, err := tr.forceTriggerCompaction(tt.collectionID)
 			assert.Equal(t, tt.wantErr, err != nil)
 			spy := (tt.fields.compactionHandler).(*spyCompactionHandler)
 			hasPlan := true
@@ -475,7 +475,7 @@ func Test_compactionTrigger_force(t *testing.T) {
 				estimateDiskSegmentPolicy: calBySchemaPolicyWithDiskIndex,
 			}
 			tt.collectionID = 4000
-			_, err := tr.forceTriggerCompaction(tt.collectionID)
+			_, _, err := tr.forceTriggerCompaction(tt.collectionID)
 			assert.Equal(t, tt.wantErr, err != nil)
 			spy := (tt.fields.compactionHandler).(*spyCompactionHandler)
 			hasPlan := true
@@ -507,7 +507,7 @@ func Test_compactionTrigger_force(t *testing.T) {
 				indexCoord:        indexCood,
 			}
 			tt.collectionID = 10000
-			_, err := tr.forceTriggerCompaction(tt.collectionID)
+			_, _, err := tr.forceTriggerCompaction(tt.collectionID)
 			assert.Equal(t, tt.wantErr, err != nil)
 			spy := (tt.fields.compactionHandler).(*spyCompactionHandler)
 			hasPlan := true
@@ -788,7 +788,7 @@ func Test_compactionTrigger_force_maxSegmentLimit(t *testing.T) {
 				segRefer:          &SegmentReferenceManager{segmentsLock: map[UniqueID]map[UniqueID]*datapb.SegmentReferenceLock{}},
 				indexCoord:        indexCoord,
 			}
-			_, err := tr.forceTriggerCompaction(tt.args.collectionID)
+			_, _, err := tr.forceTriggerCompaction(tt.args.collectionID)
 			assert.Equal(t, tt.wantErr, err != nil)
 			spy := (tt.fields.compactionHandler).(*spyCompactionHandler)
 

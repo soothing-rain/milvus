@@ -338,7 +338,7 @@ func (m *mockRootCoordService) GetStatisticsChannel(ctx context.Context) (*milvu
 	panic("not implemented") // TODO: Implement
 }
 
-//DDL request
+// DDL request
 func (m *mockRootCoordService) CreateCollection(ctx context.Context, req *milvuspb.CreateCollectionRequest) (*commonpb.Status, error) {
 	panic("not implemented") // TODO: Implement
 }
@@ -402,7 +402,7 @@ func (m *mockRootCoordService) ShowPartitions(ctx context.Context, req *milvuspb
 	}, nil
 }
 
-//global timestamp allocator
+// global timestamp allocator
 func (m *mockRootCoordService) AllocTimestamp(ctx context.Context, req *rootcoordpb.AllocTimestampRequest) (*rootcoordpb.AllocTimestampResponse, error) {
 	if m.state != commonpb.StateCode_Healthy {
 		return &rootcoordpb.AllocTimestampResponse{Status: &commonpb.Status{ErrorCode: commonpb.ErrorCode_UnexpectedError}}, nil
@@ -436,7 +436,7 @@ func (m *mockRootCoordService) AllocID(ctx context.Context, req *rootcoordpb.All
 	}, nil
 }
 
-//segment
+// segment
 func (m *mockRootCoordService) DescribeSegment(ctx context.Context, req *milvuspb.DescribeSegmentRequest) (*milvuspb.DescribeSegmentResponse, error) {
 	panic("not implemented") // TODO: Implement
 }
@@ -652,9 +652,9 @@ func (t *mockCompactionTrigger) triggerSingleCompaction(collectionID, partitionI
 }
 
 // forceTriggerCompaction force to start a compaction
-func (t *mockCompactionTrigger) forceTriggerCompaction(collectionID int64) (UniqueID, error) {
+func (t *mockCompactionTrigger) forceTriggerCompaction(collectionID int64) (UniqueID, int, error) {
 	if f, ok := t.methods["forceTriggerCompaction"]; ok {
-		if ff, ok := f.(func(collectionID int64) (UniqueID, error)); ok {
+		if ff, ok := f.(func(collectionID int64) (UniqueID, int, error)); ok {
 			return ff(collectionID)
 		}
 	}

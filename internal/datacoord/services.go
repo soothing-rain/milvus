@@ -928,16 +928,28 @@ func (s *Server) ManualCompaction(ctx context.Context, req *milvuspb.ManualCompa
 		return resp, nil
 	}
 
-	id, err := s.compactionTrigger.forceTriggerCompaction(req.CollectionID)
-	if err != nil {
-		log.Error("failed to trigger manual compaction", zap.Int64("collectionID", req.GetCollectionID()), zap.Error(err))
-		resp.Status.Reason = err.Error()
-		return resp, nil
+	var triggerCount int32
+	resp.CompactionID = make()
+	for {
+		id, planCount, err := s.compactionTrigger.forceTriggerCompaction(req.CollectionID)
+		if err != nil {
+			log.Error("failed to trigger manual compaction", zap.Int64("collectionID", req.GetCollectionID()), zap.Error(err))
+			resp.Status.Reason = err.Error()
+			return resp, nil
+		}
+		log.Info("compaction force triggered",
+			zap.Int64("collection ID", req.GetCollectionID()),
+			zap.Int64("compaction ID", id),
+			zap.Int("# of plans executed", planCount))
+		resp.CompactionID = append(resp.CompactionID, id)
+		triggerCount++
+		if triggerCount > Params.DataCoordCfg.ForceTriggerLimit || planCount == 0 {
+			break
+		}
 	}
 
 	log.Info("success to trigger manual compaction", zap.Int64("collectionID", req.GetCollectionID()), zap.Int64("compactionID", id))
 	resp.Status.ErrorCode = commonpb.ErrorCode_Success
-	resp.CompactionID = id
 	return resp, nil
 }
 

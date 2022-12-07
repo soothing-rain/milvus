@@ -49,8 +49,9 @@ type trigger interface {
 	triggerCompaction() error
 	// triggerSingleCompaction triggers a compaction bundled with collection-partition-channel-segment
 	triggerSingleCompaction(collectionID, partitionID, segmentID int64, channel string) error
-	// forceTriggerCompaction force to start a compaction
-	forceTriggerCompaction(collectionID int64) (UniqueID, error)
+	// forceTriggerCompaction force to start a compaction, it returns a compaction ID with # of compaction plans.
+	// If returned # compaction plan is 0, it means no further compaction has been done or needed.
+	forceTriggerCompaction(collectionID int64) (UniqueID, int, error)
 }
 
 type compactionSignal struct {
@@ -239,10 +240,10 @@ func (t *compactionTrigger) triggerSingleCompaction(collectionID, partitionID, s
 
 // forceTriggerCompaction force to start a compaction
 // invoked by user `ManualCompaction` operation
-func (t *compactionTrigger) forceTriggerCompaction(collectionID int64) (UniqueID, error) {
+func (t *compactionTrigger) forceTriggerCompaction(collectionID int64) (UniqueID, int, error) {
 	id, err := t.allocSignalID()
 	if err != nil {
-		return -1, err
+		return -1, 0, err
 	}
 	signal := &compactionSignal{
 		id:           id,
@@ -250,8 +251,7 @@ func (t *compactionTrigger) forceTriggerCompaction(collectionID int64) (UniqueID
 		isGlobal:     true,
 		collectionID: collectionID,
 	}
-	t.handleGlobalSignal(signal)
-	return id, nil
+	return id, t.handleGlobalSignal(signal), nil
 }
 
 func (t *compactionTrigger) allocSignalID() (UniqueID, error) {
@@ -304,10 +304,11 @@ func (t *compactionTrigger) updateSegmentMaxSize(segments []*SegmentInfo) error 
 	return nil
 }
 
-func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) {
+func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) int {
 	t.forceMu.Lock()
 	defer t.forceMu.Unlock()
 
+	planCount := 0
 	m := t.meta.GetSegmentsChanPart(func(segment *SegmentInfo) bool {
 		return (signal.collectionID == 0 || segment.CollectionID == signal.collectionID) &&
 			isSegmentHealthy(segment) &&
@@ -317,7 +318,7 @@ func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) {
 	}) // m is list of chanPartSegments, which is channel-partition organized segments
 
 	if len(m) == 0 {
-		return
+		return planCount
 	}
 
 	ts, err := t.allocTs()
@@ -326,7 +327,7 @@ func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) {
 			zap.Int64("collectionID", signal.collectionID),
 			zap.Int64("partitionID", signal.partitionID),
 			zap.Int64("segmentID", signal.segmentID))
-		return
+		return planCount
 	}
 
 	for _, group := range m {
@@ -348,10 +349,11 @@ func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) {
 				zap.Int64("collectionID", group.collectionID),
 				zap.Int64("partitionID", group.partitionID),
 				zap.String("channel", group.channelName))
-			return
+			return planCount
 		}
 
 		plans := t.generatePlans(group.segments, signal.isForce, ct)
+		planCount += len(plans)
 		for _, plan := range plans {
 			segIDs := fetchSegIDs(plan.GetSegmentBinlogs())
 
@@ -393,6 +395,7 @@ func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) {
 				zap.Int64s("segment IDs", segIDs))
 		}
 	}
+	return planCount
 }
 
 // handleSignal processes segment flush caused partition-chan level compaction signal
