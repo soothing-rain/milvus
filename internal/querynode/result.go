@@ -201,10 +201,10 @@ func selectSearchResultData(dataArray []*schemapb.SearchResultData, resultOffset
 			maxDistance = distance
 			resultDataIdx = idx
 		} else if distance == maxDistance {
-			sID := typeutil.GetPK(dataArray[i].GetIds(), idx)
-			tmpID := typeutil.GetPK(dataArray[sel].GetIds(), resultDataIdx)
-
-			if typeutil.ComparePK(sID, tmpID) {
+			if sel == -1 ||
+				typeutil.ComparePK(
+					typeutil.GetPK(dataArray[i].GetIds(), idx),
+					typeutil.GetPK(dataArray[sel].GetIds(), resultDataIdx)) {
 				sel = i
 				maxDistance = distance
 				resultDataIdx = idx
