@@ -520,6 +520,10 @@ func (t *compactionTrigger) generatePlans(segments []*SegmentInfo, force bool, c
 	getSegmentIDs := func(segment *SegmentInfo, _ int) int64 {
 		return segment.GetID()
 	}
+	log.Info("prioritized candidates", zap.Int64s("segment IDs", lo.Map(prioritizedCandidates, getSegmentIDs)), zap.Int("len", len(prioritizedCandidates)))
+	log.Info("small candidates", zap.Int64s("segment IDs", lo.Map(smallCandidates, getSegmentIDs)), zap.Int("len", len(smallCandidates)))
+	log.Info("non-planned candidates", zap.Int64s("segment IDs", lo.Map(nonPlannedSegments, getSegmentIDs)), zap.Int("len", len(nonPlannedSegments)))
+
 	// greedy pick from large segment to small, the goal is to fill each segment to reach 512M
 	// we must ensure all prioritized candidates is in a plan
 	//TODO the compaction policy should consider segment with similar timestamp together so timetravel and data expiration could work better.
