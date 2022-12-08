@@ -271,6 +271,7 @@ func (t *compactionTrigger) estimateDiskSegmentMaxNumOfRows(collectionID UniqueI
 	return t.estimateDiskSegmentPolicy(collMeta.Schema)
 }
 
+// TODO: Update segment info should be written back to Etcd.
 func (t *compactionTrigger) updateSegmentMaxSize(segments []*SegmentInfo) error {
 	ctx := context.Background()
 
@@ -287,21 +288,54 @@ func (t *compactionTrigger) updateSegmentMaxSize(segments []*SegmentInfo) error 
 		return err
 	}
 
+	isDiskANN := false
 	for _, indexInfo := range resp.IndexInfos {
 		indexParamsMap := funcutil.KeyValuePair2Map(indexInfo.IndexParams)
 		if indexType, ok := indexParamsMap["index_type"]; ok {
 			if indexType == indexparamcheck.IndexDISKANN {
-				diskSegmentMaxRows, err := t.estimateDiskSegmentMaxNumOfRows(collectionID)
+				// If index type is DiskANN, recalc segment max size here.
+				isDiskANN = true
+				newMaxRows, err := t.estimateDiskSegmentMaxNumOfRows(collectionID)
 				if err != nil {
 					return err
 				}
-				for _, segment := range segments {
-					segment.MaxRowNum = int64(diskSegmentMaxRows)
+				if len(segments) > 0 && int64(newMaxRows) != segments[0].GetMaxRowNum() {
+					log.Info("segment max rows recalculated for DiskANN collection",
+						zap.Int64("old max rows", segments[0].GetMaxRowNum()),
+						zap.Int64("new max rows", int64(newMaxRows)))
+					for _, segment := range segments {
+						segment.MaxRowNum = int64(newMaxRows)
+					}
 				}
 			}
 		}
 	}
+	// If index type is not DiskANN, recalc segment max size using default policy.
+	if !isDiskANN {
+		newMaxRows, err := t.estimateNonDiskANNSegmentMaxNumOfRows(collectionID)
+		if err != nil {
+			return err
+		}
+		if len(segments) > 0 && int64(newMaxRows) != segments[0].GetMaxRowNum() {
+			log.Info("segment max rows recalculated for non-DiskANN collection",
+				zap.Int64("old max rows", segments[0].GetMaxRowNum()),
+				zap.Int64("new max rows", int64(newMaxRows)))
+			for _, segment := range segments {
+				segment.MaxRowNum = int64(newMaxRows)
+			}
+		}
+	}
 	return nil
+}
+
+// estimateNonDiskANNSegmentMaxNumOfRows recalculates a collection's maximum segment size for non-diskANN indexed collections.
+func (t *compactionTrigger) estimateNonDiskANNSegmentMaxNumOfRows(collectionID int64) (int, error) {
+	// it's ok to use meta.GetCollection here, since collection meta is set before.
+	collMeta := t.meta.GetCollection(collectionID)
+	if collMeta == nil {
+		return 0, fmt.Errorf("failed to get collection %d", collectionID)
+	}
+	return defaultCalUpperLimitPolicy()(collMeta.Schema)
 }
 
 func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) {
@@ -338,7 +372,7 @@ func (t *compactionTrigger) handleGlobalSignal(signal *compactionSignal) {
 
 		err := t.updateSegmentMaxSize(group.segments)
 		if err != nil {
-			log.Warn("failed to update segment max size,", zap.Error(err))
+			log.Warn("failed to update segment max size", zap.Error(err))
 			continue
 		}
 
