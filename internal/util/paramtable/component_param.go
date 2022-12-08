@@ -1198,6 +1198,7 @@ type dataCoordConfig struct {
 	MaxSegmentToMerge                 int
 	SegmentSmallProportion            float64
 	SegmentCompactableProportion      float64
+	SegmentExpansionRate              float64
 	CompactionTimeoutInSeconds        int32
 	CompactionCheckIntervalInSeconds  int64
 	SingleCompactionRatioThreshold    float32
@@ -1235,6 +1236,7 @@ func (p *dataCoordConfig) init(base *BaseTable) {
 	p.initCompactionMaxSegment()
 	p.initSegmentSmallProportion()
 	p.initSegmentCompactableProportion()
+	p.initSegmentExpansionRate()
 	p.initCompactionTimeoutInSeconds()
 	p.initCompactionCheckIntervalInSeconds()
 	p.initSingleCompactionRatioThreshold()
@@ -1312,6 +1314,10 @@ func (p *dataCoordConfig) initSegmentSmallProportion() {
 
 func (p *dataCoordConfig) initSegmentCompactableProportion() {
 	p.SegmentCompactableProportion = p.Base.ParseFloatWithDefault("dataCoord.segment.compactableProportion", 0.5)
+}
+
+func (p *dataCoordConfig) initSegmentExpansionRate() {
+	p.SegmentExpansionRate = p.Base.ParseFloatWithDefault("dataCoord.segment.expansionRate", 1.25)
 }
 
 // compaction execution timeout
