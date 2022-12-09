@@ -623,7 +623,7 @@ func (replica *metaReplica) addSegmentPrivate(segment *Segment) error {
 		fmt.Sprint(Params.QueryNodeCfg.GetNodeID()),
 		fmt.Sprint(segment.collectionID),
 		fmt.Sprint(segment.partitionID),
-		string(segType),
+		segType.String(),
 		fmt.Sprint(segment.indexedFieldInfos.Len()),
 	).Inc()
 	if rowCount > 0 {
@@ -631,7 +631,7 @@ func (replica *metaReplica) addSegmentPrivate(segment *Segment) error {
 			fmt.Sprint(Params.QueryNodeCfg.GetNodeID()),
 			fmt.Sprint(segment.collectionID),
 			fmt.Sprint(segment.partitionID),
-			string(segType),
+			segType.String(),
 		).Add(float64(rowCount))
 	}
 	return nil
@@ -730,7 +730,7 @@ func (replica *metaReplica) removeSegmentPrivate(segmentID UniqueID, segType seg
 			fmt.Sprint(Params.QueryNodeCfg.GetNodeID()),
 			fmt.Sprint(segment.collectionID),
 			fmt.Sprint(segment.partitionID),
-			string(segType),
+			segType.String(),
 			// Note: this field is mutable after segment is loaded.
 			fmt.Sprint(segment.indexedFieldInfos.Len()),
 		).Dec()
@@ -739,7 +739,7 @@ func (replica *metaReplica) removeSegmentPrivate(segmentID UniqueID, segType seg
 				fmt.Sprint(Params.QueryNodeCfg.GetNodeID()),
 				fmt.Sprint(segment.collectionID),
 				fmt.Sprint(segment.partitionID),
-				string(segType),
+				segType.String(),
 			).Sub(float64(rowCount))
 		}
 	}
