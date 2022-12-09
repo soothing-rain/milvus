@@ -45,7 +45,7 @@ const (
 	Files           = "files"
 	CollectionName  = "collection"
 	PartitionName   = "partition"
-	MaxPendingCount = 32
+	MaxPendingCount = 5000
 	delimiter       = "/"
 )
 
