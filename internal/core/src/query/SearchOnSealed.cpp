@@ -54,6 +54,13 @@ SearchOnSealedIndex(const Schema& schema,
     float* distances = final->distances_.data();
 
     auto total_num = num_queries * topk;
+    std::cout << num_queries << " " << topk << " " << total_num << " " << round_decimal << std::endl;
+
+    for (int i = 0; i < total_num; i++) {
+        std::cout << ids[i] << std::endl;
+        std::cout << "DISTANCE DATA " << i << " == " << distances[i] << std::endl;
+    }
+
     if (round_decimal != -1) {
         const float multiplier = pow(10.0, round_decimal);
         for (int i = 0; i < total_num; i++) {
