@@ -583,7 +583,7 @@ func (p *MinioConfig) Init(base *BaseTable) {
 			if addr == "" {
 				return ""
 			}
-			if strings.Contains(addr, ":") {
+			if strings.Contains(addr, ":") || strings.Contains(addr, "google") {
 				return addr
 			}
 			port, _ := p.Port.get()
