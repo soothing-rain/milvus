@@ -32,6 +32,7 @@ import (
 	"github.com/milvus-io/milvus/internal/querycoordv2/balance"
 	"github.com/milvus-io/milvus/internal/querycoordv2/job"
 	"github.com/milvus-io/milvus/internal/querycoordv2/meta"
+	"github.com/milvus-io/milvus/internal/querycoordv2/observers"
 	"github.com/milvus-io/milvus/internal/querycoordv2/params"
 	"github.com/milvus-io/milvus/internal/querycoordv2/session"
 	"github.com/milvus-io/milvus/internal/querycoordv2/task"
@@ -69,6 +70,9 @@ type ServiceSuite struct {
 	jobScheduler  *job.Scheduler
 	taskScheduler *task.MockScheduler
 	balancer      balance.Balance
+
+	distMgr  *meta.DistributionManager
+	observer *observers.TargetObserver
 
 	// Test object
 	server *Server
@@ -141,6 +145,8 @@ func (suite *ServiceSuite) SetupTest() {
 		suite.meta,
 		suite.targetMgr,
 	)
+	suite.distMgr = meta.NewDistributionManager()
+	suite.observer = observers.NewTargetObserver(suite.meta, suite.targetMgr, suite.distMgr, suite.broker)
 
 	suite.server = &Server{
 		kv:                  suite.kv,
@@ -150,6 +156,7 @@ func (suite *ServiceSuite) SetupTest() {
 		dist:                suite.dist,
 		meta:                suite.meta,
 		targetMgr:           suite.targetMgr,
+		targetObserver:      suite.observer,
 		broker:              suite.broker,
 		nodeMgr:             suite.nodeMgr,
 		cluster:             suite.cluster,
@@ -157,6 +164,12 @@ func (suite *ServiceSuite) SetupTest() {
 		taskScheduler:       suite.taskScheduler,
 		balancer:            suite.balancer,
 	}
+	suite.server.collectionObserver = observers.NewCollectionObserver(
+		suite.server.dist,
+		suite.server.meta,
+		suite.server.targetMgr,
+	)
+
 	suite.server.UpdateStateCode(commonpb.StateCode_Healthy)
 }
 
@@ -477,6 +490,126 @@ func (suite *ServiceSuite) TestReleasePartition() {
 		PartitionIDs: suite.partitions[suite.collections[0]][0:1],
 	}
 	resp, err := server.ReleasePartitions(ctx, req)
+	suite.NoError(err)
+	suite.Contains(resp.Reason, ErrNotHealthy.Error())
+}
+
+func (suite *ServiceSuite) TestRefreshCollection() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5000*time.Millisecond)
+	defer cancel()
+	server := suite.server
+
+	// Test refresh all collections.
+	for _, collection := range suite.collections {
+		req := &querypb.RefreshCollectionRequest{
+			CollectionID: collection,
+		}
+		resp, err := server.RefreshCollection(ctx, req)
+		suite.NoError(err)
+		// Collection not loaded error.
+		suite.Equal(commonpb.ErrorCode_UnexpectedError, resp.ErrorCode)
+	}
+
+	// Test load all collections
+	for _, collection := range suite.collections {
+		suite.broker.EXPECT().GetPartitions(mock.Anything, collection).Return(suite.partitions[collection], nil)
+		suite.expectGetRecoverInfo(collection)
+
+		req := &querypb.LoadCollectionRequest{
+			CollectionID: collection,
+		}
+		resp, err := server.LoadCollection(ctx, req)
+		suite.NoError(err)
+		suite.Equal(commonpb.ErrorCode_Success, resp.ErrorCode)
+		suite.assertLoaded(collection)
+
+		// Load and explicitly mark load percentage to 100%.
+		collObj := utils.CreateTestCollection(collection, 1)
+		collObj.LoadPercentage = 100
+		suite.True(suite.server.meta.CollectionManager.UpdateCollectionInMemory(collObj))
+	}
+
+	// Test refresh all collections again when collections are loaded.
+	for _, collection := range suite.collections {
+		req := &querypb.RefreshCollectionRequest{
+			CollectionID: collection,
+		}
+		resp, err := server.RefreshCollection(ctx, req)
+		suite.NoError(err)
+		// Context canceled error.
+		suite.Equal(commonpb.ErrorCode_UnexpectedError, resp.ErrorCode)
+	}
+
+	// Test when server is not healthy
+	server.UpdateStateCode(commonpb.StateCode_Initializing)
+	req := &querypb.RefreshCollectionRequest{
+		CollectionID: suite.collections[0],
+	}
+	resp, err := server.RefreshCollection(ctx, req)
+	suite.NoError(err)
+	suite.Contains(resp.Reason, ErrNotHealthy.Error())
+}
+
+func (suite *ServiceSuite) TestRefreshPartitions() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5000*time.Millisecond)
+	defer cancel()
+	server := suite.server
+
+	// Test refresh all partitions.
+	for _, collection := range suite.collections {
+		req := &querypb.RefreshPartitionsRequest{
+			CollectionID: collection,
+			PartitionIDs: suite.partitions[collection],
+		}
+		resp, err := server.RefreshPartitions(ctx, req)
+		suite.NoError(err)
+		// partition not loaded error.
+		suite.Equal(commonpb.ErrorCode_UnexpectedError, resp.ErrorCode)
+	}
+
+	// Test load all partitions
+	for _, collection := range suite.collections {
+		suite.expectGetRecoverInfo(collection)
+
+		req := &querypb.LoadPartitionsRequest{
+			CollectionID: collection,
+			PartitionIDs: suite.partitions[collection],
+		}
+		resp, err := server.LoadPartitions(ctx, req)
+		suite.NoError(err)
+		suite.Equal(commonpb.ErrorCode_Success, resp.ErrorCode)
+		suite.assertLoaded(collection)
+
+		collObj := utils.CreateTestCollection(collection, 1)
+		suite.NoError(suite.server.meta.CollectionManager.PutCollection(collObj))
+
+		// Load and explicitly mark load percentage to 100%.
+		for _, partition := range suite.partitions[collection] {
+			partObj := utils.CreateTestPartition(collection, partition)
+			partObj.LoadPercentage = 100
+			suite.True(suite.server.meta.CollectionManager.UpdatePartitionInMemory(partObj))
+		}
+	}
+
+	// Test refresh all collections again.
+	for _, collection := range suite.collections {
+		req := &querypb.RefreshPartitionsRequest{
+			CollectionID: collection,
+			PartitionIDs: suite.partitions[collection],
+		}
+		resp, err := server.RefreshPartitions(ctx, req)
+		suite.NoError(err)
+		// Context canceled error.
+		suite.Equal(commonpb.ErrorCode_UnexpectedError, resp.ErrorCode)
+	}
+
+	// Test when server is not healthy
+	server.UpdateStateCode(commonpb.StateCode_Initializing)
+	req := &querypb.RefreshPartitionsRequest{
+		CollectionID: suite.collections[0],
+		PartitionIDs: []int64{},
+	}
+	resp, err := server.RefreshPartitions(ctx, req)
 	suite.NoError(err)
 	suite.Contains(resp.Reason, ErrNotHealthy.Error())
 }

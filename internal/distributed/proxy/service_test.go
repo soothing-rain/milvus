@@ -287,7 +287,7 @@ func (m *MockRootCoord) CheckHealth(ctx context.Context, req *milvuspb.CheckHeal
 	}, nil
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockQueryCoord struct {
 	MockBase
 	initErr  error
@@ -353,6 +353,14 @@ func (m *MockQueryCoord) LoadCollection(ctx context.Context, req *querypb.LoadCo
 }
 
 func (m *MockQueryCoord) ReleaseCollection(ctx context.Context, req *querypb.ReleaseCollectionRequest) (*commonpb.Status, error) {
+	return nil, nil
+}
+
+func (m *MockQueryCoord) RefreshCollection(ctx context.Context, req *querypb.RefreshCollectionRequest) (*commonpb.Status, error) {
+	return nil, nil
+}
+
+func (m *MockQueryCoord) RefreshPartitions(ctx context.Context, req *querypb.RefreshPartitionsRequest) (*commonpb.Status, error) {
 	return nil, nil
 }
 
@@ -588,7 +596,7 @@ func (m *MockDataCoord) GetIndexBuildProgress(ctx context.Context, req *datapb.G
 	return nil, nil
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockProxy struct {
 	MockBase
 	err      error

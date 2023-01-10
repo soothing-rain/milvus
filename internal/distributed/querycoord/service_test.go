@@ -34,7 +34,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockQueryCoord struct {
 	states           *milvuspb.ComponentStates
 	status           *commonpb.Status
@@ -137,6 +137,14 @@ func (m *MockQueryCoord) GetSegmentInfo(ctx context.Context, req *querypb.GetSeg
 	return m.infoResp, m.err
 }
 
+func (m *MockQueryCoord) RefreshCollection(ctx context.Context, req *querypb.RefreshCollectionRequest) (*commonpb.Status, error) {
+	return m.status, m.err
+}
+
+func (m *MockQueryCoord) RefreshPartitions(ctx context.Context, req *querypb.RefreshPartitionsRequest) (*commonpb.Status, error) {
+	return m.status, m.err
+}
+
 func (m *MockQueryCoord) LoadBalance(ctx context.Context, req *querypb.LoadBalanceRequest) (*commonpb.Status, error) {
 	return m.status, m.err
 }
@@ -163,7 +171,7 @@ func (m *MockQueryCoord) CheckHealth(ctx context.Context, req *milvuspb.CheckHea
 	}, m.err
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockRootCoord struct {
 	types.RootCoord
 	initErr  error
@@ -196,7 +204,7 @@ func (m *MockRootCoord) GetComponentStates(ctx context.Context) (*milvuspb.Compo
 	}, nil
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 type MockDataCoord struct {
 	types.DataCoord
 	initErr  error
@@ -229,7 +237,7 @@ func (m *MockDataCoord) GetComponentStates(ctx context.Context) (*milvuspb.Compo
 	}, nil
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func TestMain(m *testing.M) {
 	paramtable.Init()
 	code := m.Run()
@@ -348,6 +356,20 @@ func Test_NewServer(t *testing.T) {
 		resp, err := server.GetSegmentInfo(ctx, req)
 		assert.Nil(t, err)
 		assert.Equal(t, commonpb.ErrorCode_Success, resp.Status.ErrorCode)
+	})
+
+	t.Run("RefreshCollection", func(t *testing.T) {
+		req := &querypb.RefreshCollectionRequest{}
+		resp, err := server.RefreshCollection(ctx, req)
+		assert.Nil(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
+	})
+
+	t.Run("RefreshPartitions", func(t *testing.T) {
+		req := &querypb.RefreshPartitionsRequest{}
+		resp, err := server.RefreshPartitions(ctx, req)
+		assert.Nil(t, err)
+		assert.Equal(t, commonpb.ErrorCode_Success, resp.ErrorCode)
 	})
 
 	t.Run("LoadBalance", func(t *testing.T) {

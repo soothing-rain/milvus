@@ -92,7 +92,7 @@ func (ob *TargetObserver) tryUpdateTarget() {
 			ob.updateCurrentTarget(collectionID)
 		}
 
-		if ob.shouldUpdateNextTarget(collectionID) {
+		if ob.ShouldUpdateNextTarget(collectionID) {
 			// update next target in collection level
 			ob.UpdateNextTarget(collectionID)
 		}
@@ -107,7 +107,7 @@ func (ob *TargetObserver) tryUpdateTarget() {
 	}
 }
 
-func (ob *TargetObserver) shouldUpdateNextTarget(collectionID int64) bool {
+func (ob *TargetObserver) ShouldUpdateNextTarget(collectionID int64) bool {
 	return !ob.targetMgr.IsNextTargetExist(collectionID) || ob.isNextTargetExpired(collectionID)
 }
 

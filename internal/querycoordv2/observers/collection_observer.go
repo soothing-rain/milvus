@@ -18,17 +18,18 @@ package observers
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
+	"github.com/milvus-io/milvus-proto/go-api/commonpb"
 	"github.com/milvus-io/milvus/internal/log"
 	"github.com/milvus-io/milvus/internal/metrics"
 	"github.com/milvus-io/milvus/internal/proto/querypb"
 	"github.com/milvus-io/milvus/internal/querycoordv2/meta"
 	. "github.com/milvus-io/milvus/internal/querycoordv2/params"
 	"github.com/milvus-io/milvus/internal/querycoordv2/utils"
+	"go.uber.org/zap"
 )
 
 type CollectionObserver struct {
@@ -110,7 +111,7 @@ func (ob *CollectionObserver) observeTimeout() {
 	partitions := utils.GroupPartitionsByCollection(
 		ob.meta.CollectionManager.GetAllPartitions())
 	if len(partitions) > 0 {
-		log.Info("observes partitions timeout", zap.Int("partitionNum", len(partitions)))
+		log.Info("start observing partitions timeout", zap.Int("partitionNum", len(partitions)))
 	}
 	for collection, partitions := range partitions {
 		log := log.With(
@@ -140,23 +141,91 @@ func (ob *CollectionObserver) observeLoadStatus() {
 		if collection.LoadPercentage == 100 {
 			continue
 		}
-		ob.observeCollectionLoadStatus(collection)
+		// Explicitly ignoring return value.
+		_, _ = ob.observeCollectionLoadStatus(collection, false)
 	}
 
 	partitions := ob.meta.CollectionManager.GetAllPartitions()
 	if len(partitions) > 0 {
-		log.Info("observe partitions status", zap.Int("partitionNum", len(partitions)))
+		log.Info("observe partitions status", zap.Int("partitions count", len(partitions)))
 	}
 	for _, partition := range partitions {
 		if partition.LoadPercentage == 100 {
 			continue
 		}
-		ob.observePartitionLoadStatus(partition)
+		// Explicitly ignoring return value.
+		_, _ = ob.observePartitionLoadStatus(partition, false)
 	}
 }
 
-func (ob *CollectionObserver) observeCollectionLoadStatus(collection *meta.Collection) {
-	log := log.With(zap.Int64("collectionID", collection.GetCollectionID()))
+// RefreshCollectionLoadStatus starts a single refresh check operation to see if all segments of the given
+// collection has been loaded. Returns true if segments are loaded. Returns error status on errors.
+func (ob *CollectionObserver) RefreshCollectionLoadStatus(colID int64) (bool, *commonpb.Status) {
+	log.Info("refreshing collection load status",
+		zap.Int64("collection ID", colID))
+	collections := ob.meta.CollectionManager.GetAllCollections()
+	for _, collection := range collections {
+		if collection.CollectionID == colID {
+			return ob.observeCollectionLoadStatus(collection, true)
+		}
+	}
+	return false, &commonpb.Status{
+		ErrorCode: commonpb.ErrorCode_UnexpectedError,
+		Reason:    fmt.Sprintf("collection ID = %d not found", colID),
+	}
+}
+
+// RefreshPartitionsLoadStatus starts a single refresh check operation to see if all segments of the given
+// partitions has been loaded. Returns true if segments are loaded. Returns error status on errors.
+func (ob *CollectionObserver) RefreshPartitionsLoadStatus(colID int64, partIDs []int64) (bool, *commonpb.Status) {
+	log.Info("refreshing partitions load status",
+		zap.Int64("collection ID", colID),
+		zap.Int64s("partition IDs", partIDs))
+	partitions := ob.meta.CollectionManager.GetAllPartitions()
+	if len(partitions) > 0 {
+		log.Info("observed partitions status", zap.Int("partitions count", len(partitions)))
+	}
+	for _, targetPartID := range partIDs {
+		found := false
+		for _, partition := range partitions {
+			if colID == partition.CollectionID && targetPartID == partition.PartitionID {
+				found = true
+				refreshed, state := ob.observePartitionLoadStatus(partition, true)
+				if !refreshed || state.GetErrorCode() != commonpb.ErrorCode_Success {
+					return refreshed, state
+				}
+			}
+		}
+		if !found {
+			return false, &commonpb.Status{
+				ErrorCode: commonpb.ErrorCode_UnexpectedError,
+				Reason:    fmt.Sprintf("partition ID = %d not found", targetPartID),
+			}
+		}
+	}
+	return true, &commonpb.Status{
+		ErrorCode: commonpb.ErrorCode_Success,
+	}
+}
+
+// observeCollectionLoadStatus checks segment loading states in the given collection and update loading progress accordingly.
+// There are two modes:
+// (1) normal load, when refresh == false. Return value should be IGNORED!
+// (2) refresh mode, when refresh == true. Used when a collection has already been 100% loaded in the past. Returns TRUE
+// if all old and new segments are fully loaded, otherwise returns FALSE. It also returns error status on errors.
+func (ob *CollectionObserver) observeCollectionLoadStatus(collection *meta.Collection, refresh bool) (bool, *commonpb.Status) {
+	log := log.With(
+		zap.Int64("collectionID", collection.GetCollectionID()),
+		zap.Bool("refresh mode", refresh))
+
+	if refresh && collection.LoadPercentage != 100 {
+		errMsg := "failed to refresh as collection must be fully loaded before"
+		log.Info(errMsg, zap.Int32("current loading percentage", collection.LoadPercentage))
+		return false, &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_UnexpectedError,
+			Reason:    errMsg,
+		}
+	}
 
 	segmentTargets := ob.targetMgr.GetHistoricalSegmentsByCollection(collection.GetCollectionID(), meta.NextTarget)
 	channelTargets := ob.targetMgr.GetDmChannelsByCollection(collection.GetCollectionID(), meta.NextTarget)
@@ -197,31 +266,65 @@ func (ob *CollectionObserver) observeCollectionLoadStatus(collection *meta.Colle
 		updated.LoadPercentage = int32(loadedCount * 100 / (targetNum * int(collection.GetReplicaNumber())))
 	}
 
-	if loadedCount <= ob.collectionLoadedCount[collection.GetCollectionID()] && updated.LoadPercentage != 100 {
-		return
+	if loadedCount <= ob.collectionLoadedCount[collection.GetCollectionID()] &&
+		updated.LoadPercentage != 100 {
+		return false, &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_Success,
+		}
 	}
 	ob.collectionLoadedCount[collection.GetCollectionID()] = loadedCount
 	if updated.LoadPercentage == 100 {
 		delete(ob.collectionLoadedCount, collection.GetCollectionID())
 		ob.targetMgr.UpdateCollectionCurrentTarget(updated.CollectionID)
-		updated.Status = querypb.LoadStatus_Loaded
-		ob.meta.CollectionManager.UpdateCollection(updated)
+		if !refresh {
+			updated.Status = querypb.LoadStatus_Loaded
+			ob.meta.CollectionManager.UpdateCollection(updated)
+		}
 
 		elapsed := time.Since(updated.CreatedAt)
 		metrics.QueryCoordLoadLatency.WithLabelValues().Observe(float64(elapsed.Milliseconds()))
-	} else {
+
+		if refresh {
+			// Returns directly.
+			log.Info("all segments are fully loaded while refreshing")
+			return true, &commonpb.Status{
+				ErrorCode: commonpb.ErrorCode_Success,
+			}
+		}
+	} else if !refresh {
+		// Should NOT update non-100% load progress in refresh mode, otherwise search/query operations will fail.
 		ob.meta.CollectionManager.UpdateCollectionInMemory(updated)
 	}
-	log.Info("collection load status updated",
-		zap.Int32("loadPercentage", updated.LoadPercentage),
-		zap.Int32("collectionStatus", int32(updated.GetStatus())))
+	if !refresh {
+		log.Info("collection load status updated",
+			zap.Int32("loadPercentage", updated.LoadPercentage),
+			zap.Int32("collectionStatus", int32(updated.GetStatus())))
+	}
+	return false, &commonpb.Status{
+		ErrorCode: commonpb.ErrorCode_Success,
+	}
 }
 
-func (ob *CollectionObserver) observePartitionLoadStatus(partition *meta.Partition) {
+// observePartitionLoadStatus checks segment loading states in the given partition and update loading progress accordingly.
+// There are two modes:
+// (1) normal load, when refresh == false. Return value should be IGNORED!
+// (2) refresh mode, when refresh == true. Used when a collection has already been 100% loaded in the past. Returns TRUE
+// if all old and new segments are fully loaded, otherwise returns FALSE. It also returns error status on errors.
+func (ob *CollectionObserver) observePartitionLoadStatus(partition *meta.Partition, refresh bool) (bool, *commonpb.Status) {
 	log := log.With(
 		zap.Int64("collectionID", partition.GetCollectionID()),
 		zap.Int64("partitionID", partition.GetPartitionID()),
+		zap.Bool("refresh mode", refresh),
 	)
+
+	if refresh && partition.LoadPercentage != 100 {
+		errMsg := "failed to refresh as partition must be fully loaded before"
+		log.Info(errMsg, zap.Int32("current loading percentage", partition.LoadPercentage))
+		return false, &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_UnexpectedError,
+			Reason:    errMsg,
+		}
+	}
 
 	segmentTargets := ob.targetMgr.GetHistoricalSegmentsByPartition(partition.GetCollectionID(), partition.GetPartitionID(), meta.NextTarget)
 	channelTargets := ob.targetMgr.GetDmChannelsByCollection(partition.GetCollectionID(), meta.NextTarget)
@@ -258,25 +361,42 @@ func (ob *CollectionObserver) observePartitionLoadStatus(partition *meta.Partiti
 				zap.Int("loadSegmentCount", loadedCount-subChannelCount))
 		}
 		updated.LoadPercentage = int32(loadedCount * 100 / (targetNum * int(partition.GetReplicaNumber())))
-
 	}
 
-	if loadedCount <= ob.partitionLoadedCount[partition.GetPartitionID()] && updated.LoadPercentage != 100 {
-		return
+	if loadedCount <= ob.partitionLoadedCount[partition.GetPartitionID()] &&
+		updated.LoadPercentage != 100 {
+		return false, &commonpb.Status{
+			ErrorCode: commonpb.ErrorCode_Success,
+		}
 	}
 	ob.partitionLoadedCount[partition.GetPartitionID()] = loadedCount
 	if updated.LoadPercentage == 100 {
 		delete(ob.partitionLoadedCount, partition.GetPartitionID())
 		ob.targetMgr.UpdateCollectionCurrentTarget(partition.GetCollectionID(), partition.GetPartitionID())
-		updated.Status = querypb.LoadStatus_Loaded
-		ob.meta.CollectionManager.PutPartition(updated)
+		if !refresh {
+			updated.Status = querypb.LoadStatus_Loaded
+			ob.meta.CollectionManager.PutPartition(updated)
+		}
 
 		elapsed := time.Since(updated.CreatedAt)
 		metrics.QueryCoordLoadLatency.WithLabelValues().Observe(float64(elapsed.Milliseconds()))
-	} else {
+
+		if refresh {
+			// Returns directly.
+			log.Info("all segments are fully loaded while refreshing")
+			return true, &commonpb.Status{
+				ErrorCode: commonpb.ErrorCode_Success,
+			}
+		}
+	} else if !refresh {
 		ob.meta.CollectionManager.UpdatePartitionInMemory(updated)
 	}
-	log.Info("partition load status updated",
-		zap.Int32("loadPercentage", updated.LoadPercentage),
-		zap.Int32("partitionStatus", int32(updated.GetStatus())))
+	if !refresh {
+		log.Info("partition load status updated",
+			zap.Int32("loadPercentage", updated.LoadPercentage),
+			zap.Int32("partitionStatus", int32(updated.GetStatus())))
+	}
+	return false, &commonpb.Status{
+		ErrorCode: commonpb.ErrorCode_Success,
+	}
 }
