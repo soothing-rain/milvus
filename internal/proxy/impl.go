@@ -1592,6 +1592,62 @@ func (node *Proxy) GetLoadState(ctx context.Context, request *milvuspb.GetLoadSt
 	return successResponse, nil
 }
 
+func (node *Proxy) RefreshCollection(ctx context.Context, request *milvuspb.LoadCollectionRequest) (*commonpb.Status, error) {
+	if !node.checkHealthy() {
+		return unhealthyStatus(), nil
+	}
+
+	sp, ctx := trace.StartSpanFromContextWithOperationName(ctx, "Proxy-RefreshCollection")
+	defer sp.Finish()
+
+	method := "RefreshCollection"
+	tr := timerecord.NewTimeRecorder(method)
+	metrics.ProxyFunctionCall.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method,
+		metrics.TotalLabel).Inc()
+
+	respFromQC, err := node.queryCoord.RefreshCollection(ctx, req)
+	if err != nil {
+		metrics.ProxyFunctionCall.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method, metrics.FailLabel).Inc()
+		log.Error("failed to execute refresh collection request",
+			zap.Error(err))
+		resp.Status.ErrorCode = commonpb.ErrorCode_UnexpectedError
+		resp.Status.Reason = err.Error()
+		return resp, nil
+	}
+
+	metrics.ProxyFunctionCall.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method, metrics.SuccessLabel).Inc()
+	metrics.ProxyReqLatency.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method).Observe(float64(tr.ElapseSpan().Milliseconds()))
+	return respFromQC, nil
+}
+
+func (node *Proxy) RefreshPartitions(ctx context.Context, request *milvuspb.LoadPartitionsRequest) (*commonpb.Status, error) {
+	if !node.checkHealthy() {
+		return unhealthyStatus(), nil
+	}
+
+	sp, ctx := trace.StartSpanFromContextWithOperationName(ctx, "Proxy-RefreshPartitions")
+	defer sp.Finish()
+
+	method := "RefreshPartitions"
+	tr := timerecord.NewTimeRecorder(method)
+	metrics.ProxyFunctionCall.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method,
+		metrics.TotalLabel).Inc()
+
+	respFromQC, err := node.queryCoord.RefreshPartitions(ctx, req)
+	if err != nil {
+		metrics.ProxyFunctionCall.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method, metrics.FailLabel).Inc()
+		log.Error("failed to execute refresh partitions request",
+			zap.Error(err))
+		resp.Status.ErrorCode = commonpb.ErrorCode_UnexpectedError
+		resp.Status.Reason = err.Error()
+		return resp, nil
+	}
+
+	metrics.ProxyFunctionCall.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method, metrics.SuccessLabel).Inc()
+	metrics.ProxyReqLatency.WithLabelValues(strconv.FormatInt(paramtable.GetNodeID(), 10), method).Observe(float64(tr.ElapseSpan().Milliseconds()))
+	return respFromQC, nil
+}
+
 // CreateIndex create index for collection.
 func (node *Proxy) CreateIndex(ctx context.Context, request *milvuspb.CreateIndexRequest) (*commonpb.Status, error) {
 	if !node.checkHealthy() {

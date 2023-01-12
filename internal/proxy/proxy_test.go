@@ -1696,6 +1696,32 @@ func TestProxy(t *testing.T) {
 	})
 
 	wg.Add(1)
+	t.Run("test refresh collection", func(t *testing.T) {
+		defer wg.Done()
+		req := &milvuspb.ImportRequest{
+			CollectionName: collectionName,
+			Files:          []string{"f1.json"},
+		}
+		proxy.stateCode.Store(commonpb.StateCode_Healthy)
+		resp, err := proxy.RefreshCollection(context.TODO(), req)
+		assert.EqualValues(t, commonpb.ErrorCode_Success, resp.Status.ErrorCode)
+		assert.Nil(t, err)
+	})
+
+	wg.Add(1)
+	t.Run("test refresh partitions", func(t *testing.T) {
+		defer wg.Done()
+		req := &milvuspb.ImportRequest{
+			CollectionName: collectionName,
+			Files:          []string{"f1.json"},
+		}
+		proxy.stateCode.Store(commonpb.StateCode_Healthy)
+		resp, err := proxy.RefreshPartitions(context.TODO(), req)
+		assert.EqualValues(t, commonpb.ErrorCode_Success, resp.Status.ErrorCode)
+		assert.Nil(t, err)
+	})
+
+	wg.Add(1)
 	t.Run("test import collection ID not found", func(t *testing.T) {
 		defer wg.Done()
 		req := &milvuspb.ImportRequest{
