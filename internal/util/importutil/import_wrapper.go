@@ -41,12 +41,12 @@ const (
 	NumpyFileExt = ".npy"
 
 	// supposed size of a single block, to control a binlog file size, the max biglog file size is no more than 2*SingleBlockSize
-	SingleBlockSize = 16 * 1024 * 1024 // 16MB
+	SingleBlockSize = 64 * 1024 * 1024 // 16MB
 
 	// this limitation is to avoid this OOM risk:
 	// for column-based file, we read all its data into memory, if user input a large file, the read() method may
 	// cost extra memory and lear to OOM.
-	MaxFileSize = 16 * 1024 * 1024 * 1024 // 16GB
+	MaxFileSize = 40 * 1024 * 1024 * 1024 // 16GB
 
 	// this limitation is to avoid this OOM risk:
 	// simetimes system segment max size is a large number, a single segment fields data might cause OOM.
@@ -56,7 +56,7 @@ const (
 	// this limitation is to avoid this OOM risk:
 	// if the shard number is a large number, although single segment size is small, but there are lot of in-memory segments,
 	// the total memory size might cause OOM.
-	MaxTotalSizeInMemory = 2 * 1024 * 1024 * 1024 // 2GB
+	MaxTotalSizeInMemory = 40 * 1024 * 1024 * 1024 // 2GB
 
 	// progress percent value of persist state
 	ProgressValueForPersist = 90
