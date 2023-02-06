@@ -3,6 +3,7 @@ package rootcoord
 import (
 	"context"
 	"fmt"
+	"github.com/milvus-io/milvus/internal/log"
 	"time"
 
 	"github.com/milvus-io/milvus-proto/go-api/milvuspb"
@@ -60,6 +61,7 @@ type deleteCollectionMetaStep struct {
 }
 
 func (s *deleteCollectionMetaStep) Execute(ctx context.Context) ([]nestedStep, error) {
+	log.Info("@@@@@@@@@@@@ IN deleteCollectionMetaStep")
 	err := s.core.meta.RemoveCollection(ctx, s.collectionID, s.ts)
 	return nil, err
 }
@@ -377,7 +379,7 @@ func (b *BroadcastAlteredCollectionStep) Desc() string {
 }
 
 var (
-	confirmGCInterval          = time.Minute * 20
+	confirmGCInterval          = time.Second * 30
 	allPartition      UniqueID = -1
 )
 

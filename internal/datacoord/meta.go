@@ -172,7 +172,7 @@ type chanPartSegments struct {
 	segments     []*SegmentInfo
 }
 
-// GetSegmentsChanPart returns segments organized in Channel-Partition dimension with selector applied
+// GetSegmentsChanPart returns segments organized in channel-Partition dimension with selector applied
 func (m *meta) GetSegmentsChanPart(selector SegmentInfoSelector) []*chanPartSegments {
 	m.RLock()
 	defer m.RUnlock()
@@ -1183,6 +1183,7 @@ func (m *meta) GetCompactionTo(segmentID int64) *SegmentInfo {
 
 // UpdateChannelCheckpoint updates and saves channel checkpoint.
 func (m *meta) UpdateChannelCheckpoint(vChannel string, pos *internalpb.MsgPosition) error {
+
 	if pos == nil {
 		return fmt.Errorf("channelCP is nil, vChannel=%s", vChannel)
 	}

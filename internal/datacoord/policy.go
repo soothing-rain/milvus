@@ -51,7 +51,7 @@ func BufferChannelAssignPolicy(store ROChannelStore, nodeID int64) ChannelOpSet 
 }
 
 // AvgAssignRegisterPolicy assigns channels with average to new registered node
-// Register will not directly delete the node-channel pair. Channel manager will handle channel release.
+// Register will not directly delete the node-channel pair. channel manager will handle channel release.
 func AvgAssignRegisterPolicy(store ROChannelStore, nodeID int64) ChannelOpSet {
 	opSet := BufferChannelAssignPolicy(store, nodeID)
 	if len(opSet) != 0 {

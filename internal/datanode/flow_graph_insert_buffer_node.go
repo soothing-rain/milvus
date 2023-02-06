@@ -117,6 +117,7 @@ func (ibNode *insertBufferNode) IsValidInMsg(in []Msg) bool {
 
 func (ibNode *insertBufferNode) Operate(in []Msg) []Msg {
 	fgMsg := in[0].(*flowGraphMsg)
+	log.Info("@@@@@@ msg start position", zap.Any("sp", fgMsg.startPositions[0].GetTimestamp()))
 	if fgMsg.IsCloseMsg() {
 		if len(fgMsg.endPositions) != 0 {
 			// try to sync all segments
@@ -159,6 +160,7 @@ func (ibNode *insertBufferNode) Operate(in []Msg) []Msg {
 		pos.ChannelName = ibNode.channelName
 		startPositions = append(startPositions, pos)
 	}
+	log.Info("@@@@@@ msg start position", zap.Any("sp", startPositions[0].GetTimestamp()))
 	fgMsg.startPositions = startPositions
 	endPositions := make([]*internalpb.MsgPosition, 0, len(fgMsg.endPositions))
 	for idx := range fgMsg.endPositions {
@@ -188,6 +190,7 @@ func (ibNode *insertBufferNode) Operate(in []Msg) []Msg {
 	}
 
 	// insert messages -> buffer
+	log.Info("@@@@@@ # of insert messages", zap.Int("count", len(fgMsg.insertMessages)))
 	for _, msg := range fgMsg.insertMessages {
 		err := ibNode.bufferInsertMsg(msg, startPositions[0], endPositions[0])
 		if err != nil {
@@ -203,6 +206,8 @@ func (ibNode *insertBufferNode) Operate(in []Msg) []Msg {
 	segmentsToSync := ibNode.Sync(fgMsg, seg2Upload, endPositions[0])
 
 	ibNode.WriteTimeTick(fgMsg.timeRange.timestampMax, seg2Upload)
+
+	log.Info("@@@@@@ msg start position", zap.Any("sp", fgMsg.startPositions[0].GetTimestamp()))
 
 	res := flowGraphMsg{
 		deleteMessages: fgMsg.deleteMessages,

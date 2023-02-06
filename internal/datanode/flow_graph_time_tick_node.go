@@ -84,6 +84,7 @@ func (ttn *ttNode) Operate(in []Msg) []Msg {
 }
 
 func (ttn *ttNode) updateChannelCP(ttPos *internalpb.MsgPosition) {
+	log.Warn("@@@@@@@@@ update channel cp", zap.Any("pos", ttPos.GetTimestamp()))
 	channelPos := ttn.channel.getChannelCheckpoint(ttPos)
 	if channelPos == nil || channelPos.MsgID == nil {
 		log.Warn("updateChannelCP failed, get nil check point", zap.String("vChannel", ttn.vChannelName))

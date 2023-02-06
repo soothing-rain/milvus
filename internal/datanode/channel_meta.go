@@ -667,7 +667,8 @@ func (c *ChannelMeta) getChannelCheckpoint(ttPos *internalpb.MsgPosition) *inter
 			zap.Bool("isCurIBEmpty", seg.curInsertBuf == nil),
 			zap.Bool("isCurDBEmpty", seg.curDeleteBuf == nil),
 			zap.Int("len(hisIB)", len(seg.historyInsertBuf)),
-			zap.Int("len(hisDB)", len(seg.historyDeleteBuf)))
+			zap.Int("len(hisDB)", len(seg.historyDeleteBuf)),
+			zap.Any("updated channel cp", channelCP.GetTimestamp()))
 	}
 	// 2. if no data in buffer, use the current tt as channelCP
 	if channelCP.MsgID == nil {

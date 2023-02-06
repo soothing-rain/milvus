@@ -274,6 +274,20 @@ func (bd *BufferData) updateTimeRange(tr TimeRange) {
 }
 
 func (bd *BufferData) updateStartAndEndPosition(startPos *internalpb.MsgPosition, endPos *internalpb.MsgPosition) {
+	log.Info("@@@@@@@ updating start and end positions",
+		zap.Any("startpos ts", startPos.GetTimestamp()),
+		zap.Any("endpos ts", endPos.GetTimestamp()))
+
+	if bd.startPos != nil {
+		log.Info("@@@@@@@ updating start and end positions",
+			zap.Any("bd.startpos ts", bd.startPos.Timestamp))
+	}
+
+	if bd.endPos != nil {
+		log.Info("@@@@@@@ updating start and end positions",
+			zap.Any("bd.endpos ts", bd.endPos.Timestamp))
+	}
+
 	if bd.startPos == nil || startPos.Timestamp < bd.startPos.Timestamp {
 		bd.startPos = startPos
 	}

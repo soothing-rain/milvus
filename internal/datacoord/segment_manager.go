@@ -377,7 +377,7 @@ func (s *SegmentManager) openNewSegment(ctx context.Context, collectionID Unique
 		zap.Int64("CollectionID", segmentInfo.CollectionID),
 		zap.Int64("SegmentID", segmentInfo.ID),
 		zap.Int("Rows", maxNumOfRows),
-		zap.String("Channel", segmentInfo.InsertChannel))
+		zap.String("channel", segmentInfo.InsertChannel))
 
 	return segment, s.helper.afterCreateSegment(segmentInfo)
 }

@@ -509,6 +509,7 @@ func (ms *mqMsgStream) receiveMsg(consumer mqwrapper.Consumer) {
 				tsMsg.SetTraceCtx(opentracing.ContextWithSpan(context.Background(), sp))
 			}
 
+			log.Info("@@@@@@@@@@@@", zap.Any("ts msg pos", tsMsg.Position().Timestamp))
 			msgPack := MsgPack{
 				Msgs:           []TsMsg{tsMsg},
 				StartPositions: []*internalpb.MsgPosition{tsMsg.Position()},
@@ -765,6 +766,7 @@ func (ms *MqTtMsgStream) bufMsgPackToChannel() {
 				uniqueMsgs = append(uniqueMsgs, msg)
 			}
 
+			log.Info("@@@@@@@@@@@@", zap.Any("ts msg pos", startMsgPosition[0].Timestamp))
 			msgPack := MsgPack{
 				BeginTs:        ms.lastTimeStamp,
 				EndTs:          currTs,

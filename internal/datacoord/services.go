@@ -517,7 +517,7 @@ func (s *Server) DropVirtualChannel(ctx context.Context, req *datapb.DropVirtual
 
 	err := s.meta.UpdateDropChannelSegmentInfo(channel, segments)
 	if err != nil {
-		log.Error("Update Drop Channel segment info failed", zap.String("channel", channel), zap.Error(err))
+		log.Error("Update Drop channel segment info failed", zap.String("channel", channel), zap.Error(err))
 		resp.Status.Reason = err.Error()
 		return resp, nil
 	}

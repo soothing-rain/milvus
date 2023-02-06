@@ -40,7 +40,7 @@ type ChannelPolicyFactoryV1 struct {
 	kv kv.TxnKV
 }
 
-// NewChannelPolicyFactoryV1 helper function creates a Channel policy factory v1 from kv.
+// NewChannelPolicyFactoryV1 helper function creates a channel policy factory v1 from kv.
 func NewChannelPolicyFactoryV1(kv kv.TxnKV) *ChannelPolicyFactoryV1 {
 	return &ChannelPolicyFactoryV1{kv: kv}
 }

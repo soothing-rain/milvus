@@ -1455,7 +1455,7 @@ func (p *dataCoordConfig) initEnableGarbageCollection() {
 }
 
 func (p *dataCoordConfig) initGCInterval() {
-	p.GCInterval = time.Duration(p.Base.ParseInt64WithDefault("dataCoord.gc.interval", 60*60)) * time.Second
+	p.GCInterval = time.Duration(p.Base.ParseInt64WithDefault("dataCoord.gc.interval", 20)) * time.Second
 }
 
 func (p *dataCoordConfig) initGCMissingTolerance() {

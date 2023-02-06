@@ -202,22 +202,41 @@ func (gc *garbageCollector) scan() {
 		zap.Strings("removedKeys", removedKeys))
 }
 
+const (
+	logicalBits     = 18
+	logicalBitsMask = (1 << logicalBits) - 1
+)
+
+func ParseHybridTs(ts uint64) (int64, int64) {
+	logical := ts & logicalBitsMask
+	physical := ts >> logicalBits
+	return int64(physical), int64(logical)
+}
+
 func (gc *garbageCollector) clearEtcd() {
 	all := gc.meta.SelectSegments(func(si *SegmentInfo) bool { return true })
 	drops := make(map[int64]*SegmentInfo, 0)
 	compactTo := make(map[int64]*SegmentInfo)
 	channels := typeutil.NewSet[string]()
+	channelCPs := make(map[string]uint64)
 	for _, segment := range all {
 		if segment.GetState() == commonpb.SegmentState_Dropped && !gc.segRefer.HasSegmentLock(segment.ID) {
 			drops[segment.GetID()] = segment
 			channels.Insert(segment.GetInsertChannel())
 			//continue
 			// A(indexed), B(indexed) -> C(no indexed), D(no indexed) -> E(no indexed), A, B can not be GC
+
+			channelCPs[segment.GetInsertChannel()] = gc.handler.GetChannelSeekPosition(
+				&channel{
+					Name:         segment.GetInsertChannel(),
+					CollectionID: segment.GetCollectionID()},
+				segment.GetPartitionID()).GetTimestamp()
 		}
 		for _, from := range segment.GetCompactionFrom() {
 			compactTo[from] = segment
 		}
 	}
+	log.Info("channel check points", zap.Any("channel cpts", channelCPs))
 
 	droppedCompactTo := make(map[*SegmentInfo]struct{})
 	for id := range drops {
@@ -231,27 +250,32 @@ func (gc *garbageCollector) clearEtcd() {
 		indexedSet.Insert(segment.GetID())
 	}
 
-	channelCPs := make(map[string]uint64)
-	for channel := range channels {
-		pos := gc.meta.GetChannelCheckpoint(channel)
-		channelCPs[channel] = pos.GetTimestamp()
-	}
-
+	log.Debug("segment drop candidates", zap.Any("drops", drops))
 	for _, segment := range drops {
 		if !gc.isExpire(segment.GetDroppedAt()) {
+
+			physicalTs, _ := ParseHybridTs(segment.GetDroppedAt())
+			realtime := time.Unix(physicalTs, 0).Format(time.RFC3339) // Convert to RFC3339 format
+
+			log.Info("not expired yet", zap.Any("drop time", realtime))
 			continue
 		}
+		segInsertChannel := segment.GetInsertChannel()
 		// segment gc shall only happen when channel cp is after segment dml cp.
-		if segment.GetDmlPosition().GetTimestamp() > channelCPs[segment.GetInsertChannel()] {
-			log.RatedInfo(60, "dropped segment dml position after channel cp, skip meta gc",
+		if segment.GetDmlPosition().GetTimestamp() > channelCPs[segInsertChannel] {
+			log.Info("dropped segment dml position after channel cp, skip meta gc",
 				zap.Uint64("dmlPosTs", segment.GetDmlPosition().GetTimestamp()),
-				zap.Uint64("channelCpTs", channelCPs[segment.GetInsertChannel()]),
+				zap.Uint64("channelCpTs", channelCPs[segInsertChannel]),
 			)
 			continue
 		}
 		// For compact A, B -> C, don't GC A or B if C is not indexed,
 		// guarantee replacing A, B with C won't downgrade performance
 		if to, ok := compactTo[segment.GetID()]; ok && !indexedSet.Contain(to.GetID()) {
+			log.Warn("@@@@@@@ cont",
+				zap.Any("to", to),
+				zap.Any("ok", ok),
+				zap.Any("indexed set", to.GetID()))
 			continue
 		}
 		logs := getLogs(segment)
@@ -260,7 +284,23 @@ func (gc *garbageCollector) clearEtcd() {
 		if gc.removeLogs(logs) {
 			_ = gc.meta.DropSegment(segment.GetID())
 		}
+		if segList := gc.meta.GetSegmentsByChannel(segInsertChannel); len(segList) == 0 {
+			log.Info("empty channel found during gc, manually cleanup channel checkpoints",
+				zap.String("vChannel", segInsertChannel))
+
+			err := gc.meta.catalog.DropChannel(context.Background(), segInsertChannel)
+			if err != nil {
+				log.Warn("DropChannel failed", zap.String("vChannel", segInsertChannel), zap.Error(err))
+			}
+
+			if err := gc.meta.DropChannelCheckpoint(segInsertChannel); err != nil {
+				log.Warn("failed to drop channel check point during segment garbage collection",
+					zap.Error(err))
+				// Fail-open as there's nothing to do.
+			}
+		}
 	}
+
 }
 
 func (gc *garbageCollector) isExpire(dropts Timestamp) bool {

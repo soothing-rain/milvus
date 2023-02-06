@@ -231,8 +231,10 @@ func (mt *MetaTable) removeCollectionByIDInternal(collectionID UniqueID) {
 }
 
 func (mt *MetaTable) RemoveCollection(ctx context.Context, collectionID UniqueID, ts Timestamp) error {
+	log.Info("@@@@@@@@ IN REMOVE COLLECTION")
 	mt.ddLock.Lock()
 	defer mt.ddLock.Unlock()
+	log.Info("@@@@@@@@ IN REMOVE LOCK IN")
 
 	// Note: we cannot handle case that dropping collection with `ts1` but a collection exists in catalog with newer ts
 	// which is bigger than `ts1`. So we assume that ts should always be the latest.
@@ -240,6 +242,7 @@ func (mt *MetaTable) RemoveCollection(ctx context.Context, collectionID UniqueID
 	ctx1 := contextutil.WithTenantID(ctx, Params.CommonCfg.ClusterName)
 	aliases := mt.listAliasesByID(collectionID)
 	if err := mt.catalog.DropCollection(ctx1, &model.Collection{CollectionID: collectionID, Aliases: aliases}, ts); err != nil {
+		log.Error("@@@@@@@@ failed to drop collection", zap.Error(err))
 		return err
 	}
 

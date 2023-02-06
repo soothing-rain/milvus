@@ -105,6 +105,7 @@ func (ddn *ddNode) Operate(in []Msg) []Msg {
 		return []Msg{}
 	}
 
+	log.Info("@@@@@@ msg start position", zap.Any("sp", msMsg.StartPositions()[0].GetTimestamp()))
 	if msMsg.IsCloseMsg() {
 		var fgMsg = flowGraphMsg{
 			BaseMsg:        flowgraph.NewBaseMsg(true),
@@ -252,6 +253,7 @@ func (ddn *ddNode) Operate(in []Msg) []Msg {
 
 	fgMsg.startPositions = append(fgMsg.startPositions, msMsg.StartPositions()...)
 	fgMsg.endPositions = append(fgMsg.endPositions, msMsg.EndPositions()...)
+	log.Info("@@@@@@ msg start position", zap.Any("sp", msMsg.StartPositions()[0].GetTimestamp()))
 
 	return []Msg{&fgMsg}
 }
