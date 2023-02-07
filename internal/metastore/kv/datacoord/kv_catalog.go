@@ -471,9 +471,9 @@ func (kc *Catalog) IsChannelDropped(ctx context.Context, channel string) bool {
 	key := buildChannelRemovePath(channel)
 	v, err := kc.MetaKv.Load(key)
 	if err != nil || v != RemoveFlagTomestone {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 // DropChannel removes channel remove flag after whole procedure is finished

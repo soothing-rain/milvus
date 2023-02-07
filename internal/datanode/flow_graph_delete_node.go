@@ -122,6 +122,7 @@ func (dn *deleteNode) Operate(in []Msg) []Msg {
 		for _, segmentToFlush := range fgMsg.segmentsToSync {
 			buf, ok := dn.delBufferManager.Load(segmentToFlush)
 			if !ok {
+				log.Info("@@@@@@@ no data to flush")
 				// no related delta data to flush, send empty buf to complete flush life-cycle
 				dn.flushManager.flushDelData(nil, segmentToFlush, fgMsg.endPositions[0])
 			} else {

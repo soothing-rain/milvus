@@ -402,7 +402,7 @@ func (s *Server) newChunkManagerFactory() (storage.ChunkManager, error) {
 }
 
 func (s *Server) initGarbageCollection(cli storage.ChunkManager) {
-	s.garbageCollector = newGarbageCollector(s.meta, s.handler, s.segReferManager, s.indexCoord, GcOption{
+	s.garbageCollector = newGarbageCollector(s.meta, s.handler, s.segReferManager, s.indexCoord, s.rootCoordClient, GcOption{
 		cli:              cli,
 		enabled:          Params.DataCoordCfg.EnableGarbageCollection,
 		checkInterval:    Params.DataCoordCfg.GCInterval,

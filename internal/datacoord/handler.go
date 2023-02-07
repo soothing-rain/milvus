@@ -38,6 +38,7 @@ type Handler interface {
 	CheckShouldDropChannel(channel string) bool
 	FinishDropChannel(channel string) error
 	GetCollection(ctx context.Context, collectionID UniqueID) (*collectionInfo, error)
+	GetChannelSeekPosition(channel *channel, partitionID UniqueID) *internalpb.MsgPosition
 }
 
 // ServerHandler is a helper of Server
@@ -228,14 +229,14 @@ func (h *ServerHandler) getCollectionStartPos(channel *channel) *internalpb.MsgP
 }
 
 // GetChannelSeekPosition gets channel seek position from:
-//	1. Channel checkpoint meta;
-//	2. Segments earliest dml position;
-//	3. Collection start position;
-//  And would return if any position is valid.
+//  1. channel checkpoint meta;
+//  2. Segments earliest dml position;
+//  3. Collection start position;
+//     And would return if any position is valid.
 func (h *ServerHandler) GetChannelSeekPosition(channel *channel, partitionID UniqueID) *internalpb.MsgPosition {
 	var seekPosition *internalpb.MsgPosition
 	seekPosition = h.s.meta.GetChannelCheckpoint(channel.Name)
-	if seekPosition != nil {
+	if seekPosition != nil { //&& seekPosition.GetTimestamp() != 0 {
 		log.Info("channel seek position set from channel checkpoint meta",
 			zap.String("channel", channel.Name),
 			zap.Uint64("posTs", seekPosition.Timestamp),
@@ -244,7 +245,7 @@ func (h *ServerHandler) GetChannelSeekPosition(channel *channel, partitionID Uni
 	}
 
 	seekPosition = h.getEarliestSegmentDMLPos(channel, partitionID)
-	if seekPosition != nil {
+	if seekPosition != nil { //&& seekPosition.GetTimestamp() != 0 {
 		log.Info("channel seek position set from earliest segment dml position",
 			zap.String("channel", channel.Name),
 			zap.Uint64("posTs", seekPosition.Timestamp),
@@ -253,7 +254,7 @@ func (h *ServerHandler) GetChannelSeekPosition(channel *channel, partitionID Uni
 	}
 
 	seekPosition = h.getCollectionStartPos(channel)
-	if seekPosition != nil {
+	if seekPosition != nil { // && seekPosition.GetTimestamp() != 0 {
 		log.Info("channel seek position set from collection start position",
 			zap.String("channel", channel.Name),
 			zap.Uint64("posTs", seekPosition.Timestamp),
@@ -331,7 +332,7 @@ func (h *ServerHandler) CheckShouldDropChannel(channel string) bool {
 			}
 		}
 		return false*/
-	return h.s.meta.catalog.IsChannelDropped(h.s.ctx, channel)
+	return !h.s.meta.catalog.IsChannelDropped(h.s.ctx, channel)
 }
 
 // FinishDropChannel cleans up the remove flag for channels
@@ -342,10 +343,7 @@ func (h *ServerHandler) FinishDropChannel(channel string) error {
 		log.Warn("DropChannel failed", zap.String("vChannel", channel), zap.Error(err))
 		return err
 	}
-	err = h.s.meta.DropChannelCheckpoint(channel)
-	if err != nil {
-		log.Warn("DropChannelCheckpoint failed", zap.String("vChannel", channel), zap.Error(err))
-		return err
-	}
+	log.Info("DropChannel succeeded", zap.String("vChannel", channel))
+	// Channel checkpoints are cleaned up during garbage collection.
 	return nil
 }

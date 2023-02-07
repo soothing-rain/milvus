@@ -143,14 +143,21 @@ func (s *Segment) rollDeleteBuffer() {
 		return
 	}
 	s.curDeleteBuf.delData = nil // free buffer memory, only keep meta infos in historyDeleteBuf
+	log.Info("@@@@@@@@@ rolling history DB",
+		zap.Uint64("deltebuf sp", s.curDeleteBuf.startPos.Timestamp),
+		zap.Uint64("deltebuf ep", s.curDeleteBuf.endPos.Timestamp))
 	s.historyDeleteBuf = append(s.historyDeleteBuf, s.curDeleteBuf)
 	s.curDeleteBuf = nil
 }
 
 // evictHistoryDeleteBuffer removes flushed buffer from historyDeleteBuf after saveBinlogPath.
 func (s *Segment) evictHistoryDeleteBuffer(endPos *internalpb.MsgPosition) {
+	log.Info("@@@@@@@ start evicting hisdb", zap.Int("len", len(s.historyDeleteBuf)))
 	tmpBuffers := make([]*DelDataBuf, 0)
 	for _, buf := range s.historyDeleteBuf {
+		log.Info("@@@@@@@ ecivt his db",
+			zap.Uint64("buf end point ts", buf.endPos.Timestamp),
+			zap.Uint64("end point ts", endPos.Timestamp))
 		if buf.endPos.Timestamp > endPos.Timestamp {
 			tmpBuffers = append(tmpBuffers, buf)
 		}

@@ -377,7 +377,7 @@ func (b *BroadcastAlteredCollectionStep) Desc() string {
 }
 
 var (
-	confirmGCInterval          = time.Minute * 20
+	confirmGCInterval          = time.Second * 30
 	allPartition      UniqueID = -1
 )
 

@@ -71,6 +71,12 @@ func (ttn *ttNode) IsValidInMsg(in []Msg) bool {
 func (ttn *ttNode) Operate(in []Msg) []Msg {
 	fgMsg := in[0].(*flowGraphMsg)
 	if fgMsg.IsCloseMsg() {
+		log.Info("@@@@ flowgraph is closing, force update channel CP",
+			zap.Uint64("sp ts", fgMsg.startPositions[0].Timestamp),
+			zap.Uint64("ep ts", fgMsg.endPositions[0].Timestamp),
+			zap.String("sp ch", fgMsg.startPositions[0].ChannelName),
+			zap.String("ep ch", fgMsg.endPositions[0].ChannelName))
+		ttn.updateChannelCP(fgMsg.endPositions[0])
 		return in
 	}
 
@@ -106,7 +112,10 @@ func (ttn *ttNode) updateChannelCP(ttPos *internalpb.MsgPosition) {
 		return
 	}
 
-	log.Info("UpdateChannelCheckpoint success", zap.String("channel", ttn.vChannelName), zap.Time("channelCPTs", channelCPTs))
+	log.Info("UpdateChannelCheckpoint success",
+		zap.String("channel", ttn.vChannelName),
+		zap.Uint64("cpTs", channelPos.Timestamp),
+		zap.Time("cpTime", channelCPTs))
 }
 
 func newTTNode(config *nodeConfig, dc types.DataCoord) (*ttNode, error) {

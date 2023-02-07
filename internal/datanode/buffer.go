@@ -129,7 +129,9 @@ func (bm *DelBufferManager) Load(segID UniqueID) (delDataBuf *DelDataBuf, ok boo
 func (bm *DelBufferManager) Delete(segID UniqueID) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
+	log.Info("@@@@@@@@@ in delete")
 	if buf, ok := bm.channel.getCurDeleteBuffer(segID); ok {
+		log.Info("@@@@@@@@@ in delete loop")
 		item := buf.item
 		bm.delMemorySize -= item.memorySize
 		heap.Remove(bm.delBufHeap, item.index)

@@ -121,6 +121,7 @@ func (ibNode *insertBufferNode) Operate(in []Msg) []Msg {
 		if len(fgMsg.endPositions) != 0 {
 			// try to sync all segments
 			segmentsToSync := ibNode.Sync(fgMsg, make([]UniqueID, 0), fgMsg.endPositions[0])
+			log.Info("@@@@@@@ segments to sync during closing flowgraph", zap.Int64s("segIDs", segmentsToSync))
 			res := flowGraphMsg{
 				deleteMessages: []*msgstream.DeleteMsg{},
 				timeRange:      fgMsg.timeRange,
@@ -187,6 +188,12 @@ func (ibNode *insertBufferNode) Operate(in []Msg) []Msg {
 		panic(err)
 	}
 
+	log.Info("@@@@ sp and ep",
+		zap.Uint64("start pos", startPositions[0].Timestamp),
+		zap.Uint64("end pos", endPositions[0].Timestamp),
+		zap.String("sp ch", startPositions[0].ChannelName),
+		zap.String("ep ch", endPositions[0].ChannelName))
+	log.Info("@@@@ insert msg len", zap.Int("len", len(fgMsg.insertMessages)))
 	// insert messages -> buffer
 	for _, msg := range fgMsg.insertMessages {
 		err := ibNode.bufferInsertMsg(msg, startPositions[0], endPositions[0])
@@ -201,6 +208,7 @@ func (ibNode *insertBufferNode) Operate(in []Msg) []Msg {
 	ibNode.DisplayStatistics(seg2Upload)
 
 	segmentsToSync := ibNode.Sync(fgMsg, seg2Upload, endPositions[0])
+	log.Info("@@@@@@@ segments to sync", zap.Int64s("segIDs", segmentsToSync))
 
 	ibNode.WriteTimeTick(fgMsg.timeRange.timestampMax, seg2Upload)
 

@@ -415,7 +415,7 @@ func (m *mockRootCoordService) GetStatisticsChannel(ctx context.Context) (*milvu
 	panic("not implemented") // TODO: Implement
 }
 
-//DDL request
+// DDL request
 func (m *mockRootCoordService) CreateCollection(ctx context.Context, req *milvuspb.CreateCollectionRequest) (*commonpb.Status, error) {
 	panic("not implemented") // TODO: Implement
 }
@@ -487,7 +487,7 @@ func (m *mockRootCoordService) ShowPartitionsInternal(ctx context.Context, req *
 	return m.ShowPartitions(ctx, req)
 }
 
-//global timestamp allocator
+// global timestamp allocator
 func (m *mockRootCoordService) AllocTimestamp(ctx context.Context, req *rootcoordpb.AllocTimestampRequest) (*rootcoordpb.AllocTimestampResponse, error) {
 	if m.state != commonpb.StateCode_Healthy {
 		return &rootcoordpb.AllocTimestampResponse{Status: &commonpb.Status{ErrorCode: commonpb.ErrorCode_UnexpectedError}}, nil
@@ -521,7 +521,7 @@ func (m *mockRootCoordService) AllocID(ctx context.Context, req *rootcoordpb.All
 	}, nil
 }
 
-//segment
+// segment
 func (m *mockRootCoordService) DescribeSegment(ctx context.Context, req *milvuspb.DescribeSegmentRequest) (*milvuspb.DescribeSegmentResponse, error) {
 	panic("not implemented") // TODO: Implement
 }
@@ -820,6 +820,11 @@ func (m *mockRootCoordService) ListPolicy(ctx context.Context, in *internalpb.Li
 
 type mockHandler struct {
 	meta *meta
+}
+
+func (h *mockHandler) GetChannelSeekPosition(channel *channel, partitionID UniqueID) *internalpb.MsgPosition {
+	//TODO implement me
+	panic("implement me")
 }
 
 func newMockHandler() *mockHandler {
