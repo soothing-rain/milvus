@@ -435,6 +435,7 @@ func (p *NumpyParser) consume(columnReaders []*NumpyColumnReader) error {
 
 // readData method reads numpy data section into a storage.FieldData
 func (p *NumpyParser) readData(columnReader *NumpyColumnReader, rowCount int) (storage.FieldData, error) {
+	log.Info("#-#-#-#-#-#-#-Read data start")
 	switch columnReader.dataType {
 	case schemapb.DataType_Bool:
 		data, err := columnReader.reader.ReadBool(rowCount)
@@ -472,6 +473,7 @@ func (p *NumpyParser) readData(columnReader *NumpyColumnReader, rowCount int) (s
 			log.Error("Numpy parser: failed to read int32 array", zap.Error(err))
 			return nil, fmt.Errorf("failed to read int32 array: %s", err.Error())
 		}
+		log.Info("#-#-#-#-#-#-#-Int32 Data Read", zap.Int32s("data", data))
 
 		return &storage.Int32FieldData{
 			Data: data,
@@ -482,6 +484,7 @@ func (p *NumpyParser) readData(columnReader *NumpyColumnReader, rowCount int) (s
 			log.Error("Numpy parser: failed to read int64 array", zap.Error(err))
 			return nil, fmt.Errorf("failed to read int64 array: %s", err.Error())
 		}
+		log.Info("#-#-#-#-#-#-#-Int64 Data Read", zap.Int64s("data", data))
 
 		return &storage.Int64FieldData{
 			Data: data,
@@ -492,6 +495,7 @@ func (p *NumpyParser) readData(columnReader *NumpyColumnReader, rowCount int) (s
 			log.Error("Numpy parser: failed to read float array", zap.Error(err))
 			return nil, fmt.Errorf("failed to read float array: %s", err.Error())
 		}
+		log.Info("#-#-#-#-#-#-#-Float Data Read", zap.Float32s("data", data))
 
 		return &storage.FloatFieldData{
 			Data: data,
@@ -502,6 +506,7 @@ func (p *NumpyParser) readData(columnReader *NumpyColumnReader, rowCount int) (s
 			log.Error("Numpy parser: failed to read double array", zap.Error(err))
 			return nil, fmt.Errorf("failed to read double array: %s", err.Error())
 		}
+		log.Info("#-#-#-#-#-#-#-Double Data Read", zap.Float64s("data", data))
 
 		return &storage.DoubleFieldData{
 			Data: data,
@@ -541,6 +546,7 @@ func (p *NumpyParser) readData(columnReader *NumpyColumnReader, rowCount int) (s
 				log.Error("Numpy parser: failed to read float vector array", zap.Error(err))
 				return nil, fmt.Errorf("failed to read float vector array: %s", err.Error())
 			}
+			log.Info("#-#-#-#-#-#-#-FloatVECTOR with Float Data Read", zap.Float32s("data", data))
 		} else if elementType == schemapb.DataType_Double {
 			data = make([]float32, 0, columnReader.rowCount)
 			data64, err := columnReader.reader.ReadFloat64(rowCount * columnReader.dimension)
@@ -552,6 +558,7 @@ func (p *NumpyParser) readData(columnReader *NumpyColumnReader, rowCount int) (s
 			for _, f64 := range data64 {
 				data = append(data, float32(f64))
 			}
+			log.Info("#-#-#-#-#-#-#-FloatVECTOR with Double Data Read", zap.Float32s("data", data))
 		}
 
 		return &storage.FloatVectorFieldData{
